@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="FocusLock" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <title>FocusLock</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #0a0a0f;
+      font-family: -apple-system, 'SF Pro Display', sans-serif;
+      overscroll-behavior: none;
+    }
+
+    .screen {
+      width: 100%;
+      height: 100dvh;
+      background: #0d0d14;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Safe area padding for notch/Dynamic Island */
+    .statusbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: env(safe-area-inset-top, 12px) 20px 6px;
+      flex-shrink: 0;
+    }
+    .statusbar span { color: #fff; font-size: 12px; font-weight: 600; }
+
+    .header { padding: 10px 18px 8px; flex-shrink: 0; }
+    .header h1 { color: #fff; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    .header p { color: #888; font-size: 12px; margin-top: 2px; }
+    .blocker-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(99,200,120,0.15);
+      border: 0.5px solid rgba(99,200,120,0.35);
+      border-radius: 20px; padding: 3px 10px; margin-top: 6px;
+    }
+    .blocker-badge span { font-size: 11px; color: #63c878; font-weight: 600; }
+    .dot-on { width: 6px; height: 6px; border-radius: 50%; background: #63c878; }
+
+    .content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .content::-webkit-scrollbar { display: none; }
+
+    .section-label {
+      color: #555; font-size: 10px; font-weight: 700;
+      letter-spacing: 1.2px; text-transform: uppercase;
+      padding: 14px 18px 6px;
+    }
+
+    .app-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 18px; cursor: pointer; transition: background 0.15s;
+      -webkit-user-select: none; user-select: none;
+    }
+    .app-card:active { background: rgba(255,255,255,0.05); }
+
+    .app-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+
+    .app-info { flex: 1; min-width: 0; }
+    .app-name { color: #e8e8f0; font-size: 15px; font-weight: 600; }
+    .app-sub { color: #555; font-size: 11px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .toggle-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+
+    .toggle {
+      width: 48px; height: 28px; border-radius: 14px;
+      background: #2a2a3a; border: none; position: relative;
+      cursor: pointer; transition: background 0.25s; flex-shrink: 0;
+      -webkit-appearance: none;
+    }
+    .toggle.on { background: #e05a6b; }
+    .toggle::after {
+      content: ''; position: absolute;
+      width: 24px; height: 24px; background: #fff;
+      border-radius: 50%; top: 2px; left: 2px;
+      transition: left 0.25s; box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+    .toggle.on::after { left: 22px; }
+
+    .web-badge {
+      font-size: 9px; color: #e05a6b;
+      background: rgba(224,90,107,0.15);
+      border: 0.5px solid rgba(224,90,107,0.25);
+      padding: 2px 5px; border-radius: 4px; font-weight: 700; display: none;
+    }
+    .web-badge.show { display: block; }
+
+    .divider { height: 0.5px; background: #1e1e2a; margin: 0 18px; }
+
+    /* Bottom Nav */
+    .bottom-nav {
+      display: flex; background: #0d0d14;
+      border-top: 0.5px solid #1e1e2a;
+      padding: 6px 0;
+      padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; gap: 3px; cursor: pointer;
+      padding: 4px 0; border: none; background: none;
+      -webkit-user-select: none; user-select: none;
+    }
+    .nav-icon { font-size: 22px; color: #444; transition: color 0.15s; }
+    .nav-label { font-size: 10px; color: #444; font-weight: 600; transition: color 0.15s; }
+    .nav-btn.active .nav-icon,
+    .nav-btn.active .nav-label { color: #e05a6b; }
+
+    /* Panels */
+    .panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .panel.active { display: flex; }
+
+    /* Sidebar */
+    .sidebar-overlay {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.55); z-index: 20; display: none;
+    }
+    .sidebar {
+      position: absolute; top: 0; left: 0; bottom: 0;
+      width: 240px; background: #111118;
+      border-right: 0.5px solid #1e1e2a;
+      z-index: 30; transform: translateX(-100%);
+      transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+      display: flex; flex-direction: column;
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-header {
+      padding-top: max(env(safe-area-inset-top, 12px), 48px);
+      padding-left: 20px; padding-right: 20px; padding-bottom: 16px;
+      border-bottom: 0.5px solid #1e1e2a;
+    }
+    .sidebar-title { color: #e8e8f0; font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+    .sidebar-sub { color: #555; font-size: 12px; margin-top: 3px; }
+    .sidebar-menu { padding: 16px 0; flex: 1; overflow-y: auto; }
+    .sidebar-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 20px; cursor: pointer; transition: background 0.15s;
+      border-left: 3px solid transparent;
+    }
+    .sidebar-item.active, .sidebar-item:active {
+      background: rgba(224,90,107,0.08); border-left-color: #e05a6b;
+    }
+    .sidebar-icon { font-size: 20px; }
+    .sidebar-text { color: #999; font-size: 15px; font-weight: 500; }
+    .sidebar-item.active .sidebar-text { color: #e8e8f0; }
+    .sidebar-footer { padding: 16px 20px; border-top: 0.5px solid #1e1e2a; padding-bottom: max(env(safe-area-inset-bottom,0px),16px); }
+    .stats-row { display: flex; gap: 10px; }
+    .stat-box { flex: 1; background: #16161f; border-radius: 8px; padding: 10px; text-align: center; }
+    .stat-num { color: #e05a6b; font-size: 20px; font-weight: 700; }
+    .stat-lbl { color: #555; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; }
+
+    .blocked-count {
+      background: #e05a6b; color: #fff; border-radius: 10px;
+      padding: 1px 7px; font-size: 11px; font-weight: 700; margin-left: auto;
+    }
+
+    .menu-btn { background: none; border: none; cursor: pointer; padding: 4px; font-size: 22px; }
+
+    /* Websites panel */
+    .website-input-wrap { padding: 10px 18px; flex-shrink: 0; }
+    .website-input {
+      width: 100%; background: #16161f;
+      border: 0.5px solid #2a2a3a; border-radius: 10px;
+      color: #e8e8f0; font-size: 14px; padding: 11px 14px;
+      font-family: inherit; outline: none;
+      -webkit-appearance: none;
+    }
+    .website-input:focus { border-color: #e05a6b; }
+    .add-btn {
+      margin: 0 18px 10px;
+      background: #e05a6b; border: none; color: #fff;
+      border-radius: 10px; padding: 12px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      width: calc(100% - 36px); letter-spacing: 0.3px;
+      font-family: inherit;
+    }
+    .add-btn:active { opacity: 0.8; transform: scale(0.98); }
+
+    .web-row { display: flex; align-items: center; gap: 10px; padding: 10px 18px; }
+    .web-icon {
+      width: 34px; height: 34px; border-radius: 8px;
+      background: #16161f; border: 0.5px solid #2a2a3a;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .web-url { color: #e8e8f0; font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .web-domain { color: #555; font-size: 11px; margin-top: 1px; }
+
+    /* Schedule panel */
+    .schedule-row {
+      display: flex; align-items: center;
+      justify-content: space-between; padding: 12px 18px;
+    }
+    .schedule-title { color: #e8e8f0; font-size: 14px; font-weight: 600; }
+    .schedule-sub { color: #555; font-size: 11px; margin-top: 2px; }
+    .strict-labels { display: flex; justify-content: space-between; margin-top: 4px; }
+    .strict-labels span { color: #555; font-size: 10px; }
+    input[type=range] {
+      width: 100%; -webkit-appearance: none; appearance: none;
+      height: 4px; border-radius: 2px;
+      background: #2a2a3a; outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 22px; height: 22px;
+      border-radius: 50%; background: #e05a6b; cursor: pointer;
+    }
+    .empty-state {
+      text-align: center; padding: 40px 20px; color: #444; font-size: 13px;
+    }
+    .empty-state .emoji { font-size: 36px; display: block; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+<div class="screen">
+
+  <!-- Status Bar -->
+  <div class="statusbar">
+    <span id="clock">9:41</span>
+    <span>● ● ●</span>
+  </div>
+
+  <!-- Sidebar Overlay -->
+  <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">🔒 FocusLock</div>
+      <div class="sidebar-sub">Your blocking manager</div>
+    </div>
+    <div class="sidebar-menu">
+      <div class="sidebar-item active" id="sb-apps" onclick="switchTab('apps'); closeSidebar();">
+        <span class="sidebar-icon">📱</span>
+        <span class="sidebar-text">Block Apps</span>
+        <span class="blocked-count" id="sb-app-count">3</span>
+      </div>
+      <div class="sidebar-item" id="sb-sites" onclick="switchTab('sites'); closeSidebar();">
+        <span class="sidebar-icon">🌐</span>
+        <span class="sidebar-text">Block Websites</span>
+        <span class="blocked-count" id="sb-site-count">2</span>
+      </div>
+      <div class="sidebar-item" id="sb-schedule" onclick="switchTab('schedule'); closeSidebar();">
+        <span class="sidebar-icon">⏰</span>
+        <span class="sidebar-text">Schedule</span>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-num" id="stat-total">5</div>
+          <div class="stat-lbl">Blocked</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">0</div>
+          <div class="stat-lbl">Bypassed</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button class="menu-btn" onclick="openSidebar()" aria-label="Open menu">☰</button>
+      <div>
+        <h1>FocusLock</h1>
+        <p>Block apps &amp; their web versions</p>
+      </div>
+    </div>
+    <div class="blocker-badge">
+      <div class="dot-on"></div>
+      <span>Blocking Active</span>
+    </div>
+  </div>
+
+  <!-- APPS PANEL -->
+  <div id="panel-apps" class="panel active">
+    <div class="content">
+      <div class="section-label">Social</div>
+
+      <div class="app-card">
+        <div class="app-icon" style="background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);">📸</div>
+        <div class="app-info">
+          <div class="app-name">Instagram</div>
+          <div class="app-sub">instagram.com · app blocked</div>
+        </div>
+        <div class="toggle-wrap">
+          <button class="toggle on" id="t-instagram" onclick="toggleApp('instagram')"></button>
+          <div class="web-badge show" id="wb-instagram">WEB</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="app-card">
+        <div class="app-icon" style="background:#000;">🐦</div>
+        <div class="app-info">
+          <div class="app-name">X (Twitter)</div>
+          <div class="app-sub">x.com · app blocked</div>
+        </div>
+        <div class="toggle-wrap">
+          <button class="toggle on" id="t-twitter" onclick="toggleApp('twitter')"></button>
+          <div class="web-badge show" id="wb-twitter">WEB</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="app-card">
+        <div class="app-icon" style="background:#FF0000;">▶️</div>
+        <div class="app-info">
+          <div class="app-name">YouTube</div>
+          <div class="app-sub">youtube.com · app</div>
+        </div>
+        <div class="toggle-wrap">
+          <button class="toggle" id="t-youtube" onclick="toggleApp('youtube')"></button>
+          <div class="web-badge" id="wb-youtube">WEB</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="app-card">
+        <div class="app-icon" style="background:#0077B5;">💼</div>
+        <div class="app-info">
+          <div class="app-name">LinkedIn</div>
+          <div class="app-sub">linkedin.com · app</div>
+        </div>
+        <div class="toggle-wrap">
+          <button class="toggle" id="t-linkedin" onclick="toggleApp('linkedin')"></button>
+          <div class="web-badge" id="wb-linkedin">WEB</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="app-card">
+        <div class="app-icon" style="background:#1DA1F2;">💬</div>
+        <div class="app-info">
+          <div class="app-name">Facebook</div>
+          <div class="app-sub">facebook.com · app</div>
+        </div>
+        <div class="toggle-wrap">
+          <button class="toggle" id="t-facebook" onclick="toggleApp('facebook')"></button>
+          <div class="web-badge" id="wb-facebook">WEB</div>
+        </div>
+      </div>
+
+      <div class="section-label">Entertainment</div>
+
+      <div class="app-card">
+        <div class="app-icon" style="background:#E50914;">🎬</div>
+        <div class="app-info">
+          <div class="app-name">Netflix</div>
+          <div class="app-sub">netflix.com · app blocked</div>
+        </div>
+        <div class="toggle-wrap">
+          <button class="toggle on" id="t-netflix" onclick="toggleApp('netflix')"></button>
+          <div class="web-badge show" id="wb-netflix">WEB</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="app-card">
+        <div class="app-icon" style="background:#000;">🎵</div>
+        <div class="app-info">
+          <div class="app-name">TikTok</div>
+          <div class="app-sub">tiktok.com · app</div>
+        </div>
+        <div class="toggle-wrap">
+          <button class="toggle" id="t-tiktok" onclick="toggleApp('tiktok')"></button>
+          <div class="web-badge" id="wb-tiktok">WEB</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="app-card">
+        <div class="app-icon" style="background:#1DB954;">🎵</div>
+        <div class="app-info">
+          <div class="app-name">Spotify</div>
+          <div class="app-sub">open.spotify.com · app</div>
+        </div>
+        <div class="toggle-wrap">
+          <button class="toggle" id="t-spotify" onclick="toggleApp('spotify')"></button>
+          <div class="web-badge" id="wb-spotify">WEB</div>
+        </div>
+      </div>
+
+      <div class="section-label">Gaming &amp; Chat</div>
+
+      <div class="app-card">
+        <div class="app-icon" style="background:#7289DA;">🎮</div>
+        <div class="app-info">
+          <div class="app-name">Discord</div>
+          <div class="app-sub">discord.com · app</div>
+        </div>
+        <div class="toggle-wrap">
+          <button class="toggle" id="t-discord" onclick="toggleApp('discord')"></button>
+          <div class="web-badge" id="wb-discord">WEB</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="app-card">
+        <div class="app-icon" style="background:#25D366;">💬</div>
+        <div class="app-info">
+          <div class="app-name">WhatsApp</div>
+          <div class="app-sub">web.whatsapp.com · app</div>
+        </div>
+        <div class="toggle-wrap">
+          <button class="toggle" id="t-whatsapp" onclick="toggleApp('whatsapp')"></button>
+          <div class="web-badge" id="wb-whatsapp">WEB</div>
+        </div>
+      </div>
+
+      <div style="height:24px;"></div>
+    </div>
+  </div>
+
+  <!-- WEBSITES PANEL -->
+  <div id="panel-sites" class="panel">
+    <div class="website-input-wrap">
+      <input class="website-input" id="site-input" placeholder="e.g. reddit.com or news.ycombinator.com" autocapitalize="none" autocorrect="off" spellcheck="false" />
+    </div>
+    <button class="add-btn" onclick="addSite()">+ Add Website</button>
+    <div class="content">
+      <div class="section-label">Blocked Sites</div>
+      <div id="sites-list">
+        <div class="web-row" id="wr-reddit">
+          <div class="web-icon">🔴</div>
+          <div class="app-info">
+            <div class="web-url">reddit.com</div>
+            <div class="web-domain">all subdomains</div>
+          </div>
+          <button class="toggle on" onclick="removeSite('reddit')"></button>
+        </div>
+        <div class="divider"></div>
+        <div class="web-row" id="wr-hackernews">
+          <div class="web-icon">🟠</div>
+          <div class="app-info">
+            <div class="web-url">news.ycombinator.com</div>
+            <div class="web-domain">ycombinator.com</div>
+          </div>
+          <button class="toggle on" onclick="removeSite('hackernews')"></button>
+        </div>
+        <div class="divider" id="sites-end-divider"></div>
+      </div>
+      <div id="custom-sites"></div>
+      <div class="empty-state" id="empty-sites" style="display:none;">
+        <span class="emoji">🌐</span>
+        All websites unblocked.<br>Add one above to get started.
+      </div>
+      <div style="height:24px;"></div>
+    </div>
+  </div>
+
+  <!-- SCHEDULE PANEL -->
+  <div id="panel-schedule" class="panel">
+    <div class="content">
+      <div class="section-label">Focus Sessions</div>
+
+      <div class="schedule-row">
+        <div>
+          <div class="schedule-title">Work Hours</div>
+          <div class="schedule-sub">Mon–Fri · 9:00 AM – 5:00 PM</div>
+        </div>
+        <button class="toggle on" onclick="this.classList.toggle('on')"></button>
+      </div>
+      <div class="divider"></div>
+
+      <div class="schedule-row">
+        <div>
+          <div class="schedule-title">Evening Wind-Down</div>
+          <div class="schedule-sub">Daily · 9:00 PM – 11:59 PM</div>
+        </div>
+        <button class="toggle" onclick="this.classList.toggle('on')"></button>
+      </div>
+      <div class="divider"></div>
+
+      <div class="schedule-row">
+        <div>
+          <div class="schedule-title">Weekend Focus</div>
+          <div class="schedule-sub">Sat–Sun · 10:00 AM – 2:00 PM</div>
+        </div>
+        <button class="toggle" onclick="this.classList.toggle('on')"></button>
+      </div>
+
+      <div class="section-label">Block Strength</div>
+      <div style="padding: 0 18px 16px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+          <span style="color:#e8e8f0; font-size:14px; font-weight:600;">Strictness</span>
+          <span style="color:#e05a6b; font-size:14px; font-weight:700;" id="strict-lbl">High</span>
+        </div>
+        <input type="range" min="1" max="3" value="3" oninput="updateStrict(this.value)" />
+        <div class="strict-labels">
+          <span>Low — easy bypass</span>
+          <span>High — locked</span>
+        </div>
+      </div>
+
+      <div class="section-label">Blocked Right Now</div>
+      <div class="schedule-row">
+        <div>
+          <div class="schedule-title" id="now-count">5 items blocked</div>
+          <div class="schedule-sub">Tap Apps or Websites to adjust</div>
+        </div>
+        <span style="font-size:22px;">🔒</span>
+      </div>
+
+      <div style="height:24px;"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div class="bottom-nav">
+    <button class="nav-btn active" id="nav-apps" onclick="switchTab('apps')">
+      <span class="nav-icon">📱</span>
+      <span class="nav-label">Apps</span>
+    </button>
+    <button class="nav-btn" id="nav-sites" onclick="switchTab('sites')">
+      <span class="nav-icon">🌐</span>
+      <span class="nav-label">Websites</span>
+    </button>
+    <button class="nav-btn" id="nav-schedule" onclick="switchTab('schedule')">
+      <span class="nav-icon">⏰</span>
+      <span class="nav-label">Schedule</span>
+    </button>
+  </div>
+
+</div>
+
+<script>
+  // Live clock
+  function updateClock() {
+    const now = new Date();
+    let h = now.getHours(), m = now.getMinutes();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    document.getElementById('clock').textContent = h + ':' + String(m).padStart(2,'0') + ' ' + ampm;
+  }
+  updateClock();
+  setInterval(updateClock, 10000);
+
+  // State
+  let blockedApps = new Set(['instagram','twitter','netflix']);
+  let siteCount = 2;
+  let customSiteId = 0;
+
+  function updateStats() {
+    const total = blockedApps.size + siteCount;
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('sb-app-count').textContent = blockedApps.size;
+    document.getElementById('sb-site-count').textContent = siteCount;
+    document.getElementById('now-count').textContent = total + ' items blocked';
+  }
+
+  function toggleApp(id) {
+    const t = document.getElementById('t-' + id);
+    const wb = document.getElementById('wb-' + id);
+    t.classList.toggle('on');
+    if (t.classList.contains('on')) {
+      blockedApps.add(id);
+      if (wb) wb.classList.add('show');
+    } else {
+      blockedApps.delete(id);
+      if (wb) wb.classList.remove('show');
+    }
+    updateStats();
+  }
+
+  function switchTab(tab) {
+    ['apps','sites','schedule'].forEach(t => {
+      document.getElementById('panel-' + t).classList.remove('active');
+      document.getElementById('nav-' + t).classList.remove('active');
+      const sb = document.getElementById('sb-' + t);
+      if (sb) sb.classList.remove('active');
+    });
+    document.getElementById('panel-' + tab).classList.add('active');
+    document.getElementById('nav-' + tab).classList.add('active');
+    const sbItem = document.getElementById('sb-' + tab);
+    if (sbItem) sbItem.classList.add('active');
+  }
+
+  function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('overlay').style.display = 'block';
+  }
+
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('overlay').style.display = 'none';
+  }
+
+  function addSite() {
+    const input = document.getElementById('site-input');
+    let url = input.value.trim().replace(/^https?:\/\//,'').replace(/\/$/,'');
+    if (!url) return;
+    customSiteId++;
+    siteCount++;
+    const id = 'csite-' + customSiteId;
+    const domain = url.split('/')[0];
+    const wrapper = document.createElement('div');
+    wrapper.id = id + '-wrap';
+    wrapper.innerHTML =
+      '<div class="web-row" id="' + id + '">' +
+        '<div class="web-icon">🔗</div>' +
+        '<div class="app-info">' +
+          '<div class="web-url">' + url + '</div>' +
+          '<div class="web-domain">' + domain + '</div>' +
+        '</div>' +
+        '<button class="toggle on" onclick="removeCustomSite(\'' + id + '\')"></button>' +
+      '</div>' +
+      '<div class="divider"></div>';
+    document.getElementById('custom-sites').appendChild(wrapper);
+    input.value = '';
+    input.blur();
+    updateStats();
+  }
+
+  function removeCustomSite(id) {
+    const el = document.getElementById(id + '-wrap');
+    if (el) { el.remove(); siteCount--; updateStats(); }
+  }
+
+  function removeSite(id) {
+    const el = document.getElementById('wr-' + id);
+    if (el) {
+      el.style.transition = 'opacity 0.2s';
+      el.style.opacity = '0';
+      setTimeout(() => { el.remove(); siteCount--; updateStats(); }, 200);
+    }
+  }
+
+  function updateStrict(v) {
+    const labels = ['','Low','Medium','High'];
+    document.getElementById('strict-lbl').textContent = labels[v];
+  }
+
+  // Allow pressing Enter to add a site
+  document.getElementById('site-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') addSite();
+  });
+</script>
+</body>
+</html>
