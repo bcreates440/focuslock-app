@@ -1,0 +1,4 @@
+# Local-only dev tooling — machine-specific, not needed for the deployed site.
+# (GitHub Pages just serves index.html / styles.css / app.js.)
+serve.ps1
+.claude/launch.json
