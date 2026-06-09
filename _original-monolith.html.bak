@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="FocusLock"/>
+  <meta name="theme-color" content="#0a0a0f"/>
+  <title>FocusLock</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    html,body{width:100%;height:100%;background:#0a0a0f;font-family:-apple-system,'SF Pro Display',sans-serif;overscroll-behavior:none;}
+    .screen{width:100%;height:100dvh;background:#0d0d14;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+    .statusbar{display:flex;justify-content:space-between;align-items:center;padding:env(safe-area-inset-top,12px) 20px 6px;flex-shrink:0;}
+    .statusbar span{color:#fff;font-size:12px;font-weight:600;}
+    .header{padding:10px 18px 8px;flex-shrink:0;}
+    .header h1{color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.5px;}
+    .content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .content::-webkit-scrollbar{display:none;}
+    .section-label{color:#555;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;padding:14px 18px 6px;}
+    .app-card{display:flex;align-items:center;gap:12px;padding:10px 18px;-webkit-user-select:none;user-select:none;}
+    .app-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+    .app-info{flex:1;min-width:0;}
+    .app-name{color:#e8e8f0;font-size:15px;font-weight:600;}
+    .app-sub{color:#555;font-size:11px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .toggle-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:5px;}
+    .toggle{width:48px;height:28px;border-radius:14px;background:#2a2a3a;border:none;position:relative;cursor:pointer;transition:background 0.25s;flex-shrink:0;-webkit-appearance:none;}
+    .toggle.on{background:#e05a6b;}
+    .toggle::after{content:'';position:absolute;width:24px;height:24px;background:#fff;border-radius:50%;top:2px;left:2px;transition:left 0.25s;box-shadow:0 1px 4px rgba(0,0,0,0.5);}
+    .toggle.on::after{left:22px;}
+    .toggle.locked{opacity:0.45;cursor:not-allowed;}
+    .web-badge{font-size:9px;color:#e05a6b;background:rgba(224,90,107,0.15);border:0.5px solid rgba(224,90,107,0.25);padding:2px 5px;border-radius:4px;font-weight:700;display:none;}
+    .web-badge.show{display:block;}
+    .auto-badge{font-size:9px;color:#63c878;background:rgba(99,200,120,0.12);border:0.5px solid rgba(99,200,120,0.25);padding:2px 5px;border-radius:4px;font-weight:700;}
+    .divider{height:0.5px;background:#1e1e2a;margin:0 18px;}
+    .bottom-nav{display:flex;background:#0d0d14;border-top:0.5px solid #1e1e2a;padding:6px 0;padding-bottom:max(env(safe-area-inset-bottom,0px),8px);flex-shrink:0;}
+    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;border:none;background:none;-webkit-user-select:none;user-select:none;}
+    .nav-icon{font-size:22px;color:#444;transition:color 0.15s;}
+    .nav-label{font-size:10px;color:#444;font-weight:600;transition:color 0.15s;}
+    .nav-btn.active .nav-icon,.nav-btn.active .nav-label{color:#e05a6b;}
+    .panel{display:none;flex-direction:column;flex:1;overflow:hidden;}
+    .panel.active{display:flex;}
+    /* Sidebar */
+    .sidebar-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.55);z-index:20;display:none;}
+    .sidebar{position:absolute;top:0;left:0;bottom:0;width:240px;background:#111118;border-right:0.5px solid #1e1e2a;z-index:30;transform:translateX(-100%);transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;}
+    .sidebar.open{transform:translateX(0);}
+    .sidebar-header{padding-top:max(env(safe-area-inset-top,12px),48px);padding:max(env(safe-area-inset-top,12px),48px) 20px 16px;border-bottom:0.5px solid #1e1e2a;}
+    .sidebar-title{color:#e8e8f0;font-size:18px;font-weight:700;}
+    .sidebar-sub{color:#555;font-size:12px;margin-top:3px;}
+    .sidebar-menu{padding:16px 0;flex:1;overflow-y:auto;}
+    .sidebar-item{display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:pointer;transition:background 0.15s;border-left:3px solid transparent;}
+    .sidebar-item.active,.sidebar-item:active{background:rgba(224,90,107,0.08);border-left-color:#e05a6b;}
+    .sidebar-icon{font-size:20px;}
+    .sidebar-text{color:#999;font-size:15px;font-weight:500;}
+    .sidebar-item.active .sidebar-text{color:#e8e8f0;}
+    .sidebar-footer{padding:16px 20px;border-top:0.5px solid #1e1e2a;padding-bottom:max(env(safe-area-inset-bottom,0px),16px);}
+    .stats-row{display:flex;gap:10px;}
+    .stat-box{flex:1;background:#16161f;border-radius:8px;padding:10px;text-align:center;}
+    .stat-num{color:#e05a6b;font-size:20px;font-weight:700;}
+    .stat-lbl{color:#555;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;margin-top:2px;}
+    .blocked-count{background:#e05a6b;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:auto;}
+    .menu-btn{background:none;border:none;cursor:pointer;padding:4px;font-size:22px;}
+    /* Websites panel */
+    .website-input-wrap{padding:10px 18px;flex-shrink:0;}
+    .website-input{width:100%;background:#16161f;border:0.5px solid #2a2a3a;border-radius:10px;color:#e8e8f0;font-size:14px;padding:11px 14px;font-family:inherit;outline:none;-webkit-appearance:none;}
+    .website-input:focus{border-color:#e05a6b;}
+    .add-btn{margin:0 18px 10px;background:#e05a6b;border:none;color:#fff;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;width:calc(100% - 36px);letter-spacing:0.3px;font-family:inherit;}
+    .add-btn:active{opacity:0.8;}
+    .web-row{display:flex;align-items:center;gap:10px;padding:10px 18px;}
+    .web-icon{width:34px;height:34px;border-radius:8px;background:#16161f;border:0.5px solid #2a2a3a;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+    .web-url{color:#e8e8f0;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .web-domain{color:#555;font-size:11px;margin-top:1px;}
+    input[type=range]{width:100%;-webkit-appearance:none;height:4px;border-radius:2px;background:#2a2a3a;outline:none;}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#e05a6b;cursor:pointer;}
+    /* Dashboard cards */
+    .dash-card{margin:10px 18px;background:#16161f;border-radius:16px;overflow:hidden;cursor:pointer;border:0.5px solid #1e1e2a;transition:border-color 0.15s;}
+    .dash-card:active{opacity:0.88;}
+    .dash-card.active-focus{border-color:rgba(224,90,107,0.45);}
+    .dash-card-header{padding:11px 16px;display:flex;align-items:center;justify-content:space-between;}
+    .dash-card-header.active-bg{background:rgba(224,90,107,0.1);}
+    .dash-card-label{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+    .dash-card-label.red{color:#e05a6b;}
+    .dash-card-label.grey{color:#555;}
+    .lock-badge{display:flex;align-items:center;gap:5px;background:rgba(224,90,107,0.2);border-radius:20px;padding:3px 10px;}
+    .lock-badge span{color:#e05a6b;font-size:11px;font-weight:700;}
+    .dash-card-body{padding:13px 16px;}
+    .dash-focus-name{color:#e8e8f0;font-size:19px;font-weight:700;letter-spacing:-0.3px;}
+    .dash-focus-purpose{color:#888;font-size:13px;margin-top:3px;line-height:1.4;}
+    .dash-time-row{display:flex;gap:8px;margin-top:12px;}
+    .dash-time-box{flex:1;background:#0d0d14;border-radius:10px;padding:9px 6px;text-align:center;}
+    .dash-time-val{color:#e8e8f0;font-size:14px;font-weight:700;}
+    .dash-time-lbl{color:#555;font-size:9px;margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;}
+    .bypass-row{padding:11px 16px;border-top:0.5px solid #1e1e2a;display:flex;align-items:center;justify-content:space-between;}
+    .bypass-tokens{display:flex;gap:5px;}
+    .token{width:10px;height:10px;border-radius:50%;background:#e05a6b;}
+    .token.used{background:#2a2a3a;}
+    .bypass-btn{background:rgba(224,90,107,0.15);border:0.5px solid rgba(224,90,107,0.35);color:#e05a6b;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
+    .bypass-btn:disabled{opacity:0.35;cursor:not-allowed;}
+    .bypass-btn.bypassed{background:rgba(99,200,120,0.15);border-color:rgba(99,200,120,0.35);color:#63c878;}
+    .tap-hint{color:#555;font-size:10px;padding:0 16px 9px;display:flex;align-items:center;gap:4px;}
+    .dash-next-body{display:flex;align-items:center;gap:10px;}
+    .dash-empty{text-align:center;padding:28px 20px;color:#444;font-size:13px;}
+    .dash-empty .emoji{font-size:34px;display:block;margin-bottom:8px;}
+    .blocker-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(99,200,120,0.15);border:0.5px solid rgba(99,200,120,0.35);border-radius:20px;padding:3px 10px;margin-top:6px;}
+    .blocker-badge span{font-size:11px;color:#63c878;font-weight:600;}
+    .dot-on{width:6px;height:6px;border-radius:50%;background:#63c878;}
+    .bypassed-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,180,0,0.15);border:0.5px solid rgba(255,180,0,0.35);border-radius:20px;padding:3px 10px;margin-top:6px;}
+    .bypassed-badge span{font-size:11px;color:#ffb400;font-weight:600;}
+    .dot-bypass{width:6px;height:6px;border-radius:50%;background:#ffb400;}
+    /* Customize */
+    .focus-card{margin:0 18px 10px;background:#16161f;border:0.5px solid #1e1e2a;border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color 0.15s;}
+    .focus-card:active{border-color:#e05a6b;}
+    .focus-card-header{display:flex;align-items:center;gap:12px;padding:12px 14px;}
+    .focus-card-icon{width:36px;height:36px;border-radius:9px;background:#0d0d14;border:0.5px solid #2a2a3a;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+    .focus-card-name{color:#e8e8f0;font-size:15px;font-weight:600;}
+    .focus-card-time{color:#555;font-size:11px;margin-top:2px;}
+    .focus-card-footer{border-top:0.5px solid #1e1e2a;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;}
+    .focus-card-purpose{color:#666;font-size:11px;font-style:italic;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .add-focus-btn{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 18px 14px;background:rgba(224,90,107,0.1);border:0.5px dashed rgba(224,90,107,0.4);border-radius:14px;padding:16px;cursor:pointer;color:#e05a6b;font-size:15px;font-weight:700;font-family:inherit;width:calc(100% - 36px);}
+    .add-focus-btn:active{opacity:0.7;}
+    .add-focus-btn.maxed{opacity:0.35;cursor:not-allowed;}
+    .focus-count-bar{display:flex;align-items:center;justify-content:space-between;padding:0 18px 10px;}
+    .focus-count-text{color:#555;font-size:12px;}
+    .focus-count-num{color:#e05a6b;font-weight:700;}
+    /* Token card on Customize page */
+    .token-card{margin:0 18px 4px;background:#16161f;border:0.5px solid #1e1e2a;border-radius:14px;padding:14px 16px;}
+    .token-card-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+    .token-card-title{color:#e8e8f0;font-size:15px;font-weight:700;}
+    .token-card-sub{color:#555;font-size:11px;margin-top:2px;}
+    .token-card-count{color:#e05a6b;font-size:26px;font-weight:800;line-height:1;}
+    .token-bar-track{display:flex;gap:6px;}
+    .token-bar-seg{flex:1;height:7px;border-radius:4px;transition:background 0.2s;}
+    .token-bar-seg.filled{background:#e05a6b;}
+    .token-bar-seg.empty{background:#2a2a3a;}
+    /* Focus Detail Slide */
+    .detail-panel{position:absolute;inset:0;background:#0d0d14;z-index:40;transform:translateX(100%);transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;}
+    .detail-panel.open{transform:translateX(0);}
+    .detail-topbar{display:flex;align-items:center;padding:env(safe-area-inset-top,12px) 18px 10px;flex-shrink:0;border-bottom:0.5px solid #1e1e2a;}
+    .back-btn{background:none;border:none;color:#e05a6b;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 0;min-width:60px;}
+    .detail-title-text{color:#e8e8f0;font-size:17px;font-weight:700;flex:1;text-align:center;}
+    .detail-spacer{min-width:60px;}
+    .detail-hero{padding:14px 18px 12px;border-bottom:0.5px solid #1e1e2a;flex-shrink:0;}
+    .detail-hero-row{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
+    .detail-hero-icon{width:50px;height:50px;border-radius:13px;background:#16161f;border:0.5px solid #2a2a3a;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+    .detail-hero-name{color:#e8e8f0;font-size:19px;font-weight:700;letter-spacing:-0.3px;}
+    .detail-hero-purpose{color:#888;font-size:12px;margin-top:3px;}
+    .detail-chips{display:flex;gap:7px;}
+    .detail-chip{background:#16161f;border:0.5px solid #2a2a3a;border-radius:8px;padding:6px 10px;text-align:center;flex:1;}
+    .detail-chip-val{color:#e8e8f0;font-size:12px;font-weight:700;}
+    .detail-chip-lbl{color:#555;font-size:9px;margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
+    /* Token strip in detail */
+    .detail-token-strip{padding:11px 18px;border-bottom:0.5px solid #1e1e2a;display:flex;align-items:center;justify-content:space-between;background:#111118;flex-shrink:0;}
+    .dts-left{display:flex;flex-direction:column;gap:3px;}
+    .dts-label{color:#888;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.9px;}
+    .dts-sub{color:#555;font-size:10px;}
+    .dts-right{display:flex;align-items:center;gap:8px;}
+    .dts-dots{display:flex;gap:5px;}
+    .dts-dot{width:12px;height:12px;border-radius:50%;background:#e05a6b;}
+    .dts-dot.used{background:#2a2a3a;}
+    .dts-count{color:#e05a6b;font-size:15px;font-weight:800;}
+    /* Locked banner */
+    .locked-banner{margin:10px 18px 0;background:rgba(224,90,107,0.07);border:0.5px solid rgba(224,90,107,0.22);border-radius:12px;padding:11px 14px;display:flex;align-items:flex-start;gap:10px;flex-shrink:0;}
+    .locked-banner-text{color:#e05a6b;font-size:13px;font-weight:600;}
+    .locked-banner-sub{color:#a05060;font-size:11px;margin-top:2px;}
+    /* Modals */
+    .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,0.72);z-index:60;display:none;align-items:flex-end;}
+    .modal-bg.show{display:flex;}
+    .modal{background:#16161f;border-radius:20px 20px 0 0;padding:20px;padding-bottom:max(env(safe-area-inset-bottom,0px),20px);width:100%;max-height:90dvh;overflow-y:auto;}
+    .modal-title{color:#e8e8f0;font-size:17px;font-weight:700;margin-bottom:16px;text-align:center;}
+    .modal-input{width:100%;background:#0d0d14;border:0.5px solid #2a2a3a;border-radius:10px;color:#e8e8f0;font-size:15px;padding:12px 14px;font-family:inherit;outline:none;margin-bottom:10px;-webkit-appearance:none;}
+    .modal-input:focus{border-color:#e05a6b;}
+    .modal-row{display:flex;gap:10px;margin-bottom:10px;}
+    .modal-label{color:#888;font-size:12px;font-weight:600;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.8px;}
+    .modal-confirm{width:100%;background:#e05a6b;border:none;color:#fff;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:6px;}
+    .modal-confirm:active{opacity:0.8;}
+    .modal-cancel{width:100%;background:#1e1e2a;border:none;color:#888;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:8px;}
+    .bypass-option{display:flex;align-items:center;justify-content:space-between;padding:14px;background:#0d0d14;border:0.5px solid #1e1e2a;border-radius:12px;margin-bottom:8px;cursor:pointer;}
+    .bypass-option:active{background:#1a1a24;}
+    .bypass-option-label{color:#e8e8f0;font-size:15px;font-weight:600;}
+    .bypass-option-sub{color:#555;font-size:12px;margin-top:2px;}
+    .bypass-warning{color:#ffb400;font-size:12px;text-align:center;margin-bottom:14px;background:rgba(255,180,0,0.08);border:0.5px solid rgba(255,180,0,0.2);border-radius:8px;padding:8px;}
+    .strict-labels{display:flex;justify-content:space-between;margin-top:4px;}
+    .strict-labels span{color:#555;font-size:10px;}
+    .day-btn{background:#16161f;border:0.5px solid #2a2a3a;color:#888;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+    .day-btn.active{background:rgba(224,90,107,0.15);border-color:rgba(224,90,107,0.4);color:#e05a6b;}
+    .icon-btn{background:#16161f;border:0.5px solid #2a2a3a;border-radius:8px;padding:8px 10px;font-size:18px;cursor:pointer;font-family:inherit;}
+    .icon-btn.active{background:rgba(224,90,107,0.15);border-color:rgba(224,90,107,0.4);}
+    .detail-web-add-row{display:flex;gap:8px;padding:8px 18px 4px;}
+    .detail-web-input{flex:1;background:#16161f;border:0.5px solid #2a2a3a;border-radius:10px;color:#e8e8f0;font-size:13px;padding:9px 12px;font-family:inherit;outline:none;-webkit-appearance:none;}
+    .detail-web-input:focus{border-color:#e05a6b;}
+    .detail-web-add-btn{background:#e05a6b;border:none;color:#fff;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+    .del-focus-btn{width:calc(100% - 36px);margin:0 18px 14px;background:rgba(224,90,107,0.08);border:0.5px solid rgba(224,90,107,0.25);color:#e05a6b;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
+    .del-focus-btn:active{opacity:0.7;}
+  </style>
+</head>
+<body>
+<div class="screen">
+  <div class="statusbar"><span id="clock">9:41</span><span>● ● ●</span></div>
+  <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">🔒 FocusLock</div>
+      <div class="sidebar-sub">Your blocking manager</div>
+    </div>
+    <div class="sidebar-menu">
+      <div class="sidebar-item" id="sb-dash" onclick="switchTab('dash');closeSidebar();"><span class="sidebar-icon">🏠</span><span class="sidebar-text">Dashboard</span></div>
+      <div class="sidebar-item" id="sb-apps" onclick="switchTab('apps');closeSidebar();"><span class="sidebar-icon">📱</span><span class="sidebar-text">Block Apps</span><span class="blocked-count" id="sb-app-count">3</span></div>
+      <div class="sidebar-item" id="sb-sites" onclick="switchTab('sites');closeSidebar();"><span class="sidebar-icon">🌐</span><span class="sidebar-text">Block Websites</span><span class="blocked-count" id="sb-site-count">2</span></div>
+      <div class="sidebar-item" id="sb-customize" onclick="switchTab('customize');closeSidebar();"><span class="sidebar-icon">⚙️</span><span class="sidebar-text">Customize</span></div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-num" id="stat-total">5</div><div class="stat-lbl">Blocked</div></div>
+        <div class="stat-box"><div class="stat-num" id="stat-bypass">3</div><div class="stat-lbl">Bypasses Left</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="menu-btn" onclick="openSidebar()">☰</button>
+      <div><h1>FocusLock</h1></div>
+    </div>
+    <div class="blocker-badge" id="status-badge"><div class="dot-on"></div><span>Blocking Active</span></div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="panel-dash" class="panel active">
+    <div class="content">
+      <div class="section-label">Current Focus</div>
+      <div id="dash-active-wrap"></div>
+      <div class="section-label" style="padding-top:4px;">Up Next</div>
+      <div id="dash-next-wrap"></div>
+      <div style="height:24px;"></div>
+    </div>
+  </div>
+
+  <!-- APPS PANEL -->
+  <div id="panel-apps" class="panel">
+    <div style="padding:10px 18px 4px;flex-shrink:0;">
+      <div style="background:rgba(99,200,120,0.08);border:0.5px solid rgba(99,200,120,0.2);border-radius:10px;padding:9px 12px;font-size:12px;color:#63c878;font-weight:600;">
+        ✓ Toggling an app automatically blocks its website too
+      </div>
+    </div>
+    <div class="content" id="global-apps-list">
+      <div class="section-label">Social</div>
+      <div id="gac-instagram"></div><div class="divider"></div>
+      <div id="gac-twitter"></div><div class="divider"></div>
+      <div id="gac-youtube"></div><div class="divider"></div>
+      <div id="gac-linkedin"></div><div class="divider"></div>
+      <div id="gac-facebook"></div>
+      <div class="section-label">Entertainment</div>
+      <div id="gac-netflix"></div><div class="divider"></div>
+      <div id="gac-tiktok"></div><div class="divider"></div>
+      <div id="gac-spotify"></div>
+      <div class="section-label">Gaming &amp; Chat</div>
+      <div id="gac-discord"></div><div class="divider"></div>
+      <div id="gac-whatsapp"></div>
+      <div style="height:24px;"></div>
+    </div>
+  </div>
+
+  <!-- WEBSITES PANEL -->
+  <div id="panel-sites" class="panel">
+    <div class="website-input-wrap"><input class="website-input" id="site-input" placeholder="e.g. reddit.com" autocapitalize="none" autocorrect="off" spellcheck="false"/></div>
+    <button class="add-btn" onclick="addGlobalSite()">+ Add Website</button>
+    <div class="content">
+      <div class="section-label">Auto-blocked (from Apps)</div>
+      <div id="auto-sites-list"></div>
+      <div class="section-label">Custom Blocked Sites</div>
+      <div id="custom-sites-list"></div>
+      <div style="height:24px;"></div>
+    </div>
+  </div>
+
+  <!-- CUSTOMIZE PANEL -->
+  <div id="panel-customize" class="panel">
+    <div class="content">
+      <div class="section-label">Bypass Tokens</div>
+      <div class="token-card" style="margin-bottom:14px;">
+        <div class="token-card-row">
+          <div><div class="token-card-title">Monthly Bypasses</div><div class="token-card-sub">Resets on the 1st of each month</div></div>
+          <div class="token-card-count" id="cust-token-num">3</div>
+        </div>
+        <div class="token-bar-track" id="cust-token-bar"></div>
+      </div>
+      <div class="section-label">Focus Schedules</div>
+      <div class="focus-count-bar">
+        <span class="focus-count-text">Tap a focus to view or edit</span>
+        <span class="focus-count-text"><span class="focus-count-num" id="focus-count-num">2</span> / 10</span>
+      </div>
+      <div id="focus-cards"></div>
+      <button class="add-focus-btn" id="add-focus-btn" onclick="openNewFocusModal()">+ Focus</button>
+      <div class="section-label">Block Strength</div>
+      <div style="padding:0 18px 16px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+          <span style="color:#e8e8f0;font-size:14px;font-weight:600;">Strictness</span>
+          <span style="color:#e05a6b;font-size:14px;font-weight:700;" id="strict-lbl">High</span>
+        </div>
+        <input type="range" min="1" max="3" value="3" oninput="updateStrict(this.value)"/>
+        <div class="strict-labels"><span>Low — easy bypass</span><span>High — locked</span></div>
+      </div>
+      <div style="height:24px;"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div class="bottom-nav">
+    <button class="nav-btn active" id="nav-dash" onclick="switchTab('dash')"><span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span></button>
+    <button class="nav-btn" id="nav-apps" onclick="switchTab('apps')"><span class="nav-icon">📱</span><span class="nav-label">Apps</span></button>
+    <button class="nav-btn" id="nav-sites" onclick="switchTab('sites')"><span class="nav-icon">🌐</span><span class="nav-label">Websites</span></button>
+    <button class="nav-btn" id="nav-customize" onclick="switchTab('customize')"><span class="nav-icon">⚙️</span><span class="nav-label">Customize</span></button>
+  </div>
+
+  <!-- FOCUS DETAIL SLIDE-IN -->
+  <div class="detail-panel" id="detail-panel">
+    <div class="detail-topbar">
+      <button class="back-btn" onclick="closeDetail()">‹ Back</button>
+      <div class="detail-title-text" id="detail-title">Focus</div>
+      <div class="detail-spacer"></div>
+    </div>
+    <div id="detail-static"></div><!-- hero + token strip + locked banner -->
+    <div class="content" id="detail-content"></div>
+  </div>
+</div>
+
+<!-- NEW FOCUS MODAL -->
+<div class="modal-bg" id="modal-new-focus">
+  <div class="modal">
+    <div class="modal-title">New Focus Schedule</div>
+    <div class="modal-label">Name</div>
+    <input class="modal-input" id="new-focus-name" placeholder="e.g. Deep Work, No Scroll, Gym Time" maxlength="30"/>
+    <div class="modal-label">Purpose / Goal</div>
+    <input class="modal-input" id="new-focus-purpose" placeholder="e.g. Stay focused on work tasks" maxlength="60"/>
+    <div class="modal-row">
+      <div style="flex:1;"><div class="modal-label">Start</div><input class="modal-input" id="new-focus-start" type="time" value="09:00"/></div>
+      <div style="flex:1;"><div class="modal-label">End</div><input class="modal-input" id="new-focus-end" type="time" value="17:00"/></div>
+    </div>
+    <div class="modal-label">Days</div>
+    <div id="day-picker" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+      <button class="day-btn active" data-day="0">Sun</button><button class="day-btn active" data-day="1">Mon</button>
+      <button class="day-btn active" data-day="2">Tue</button><button class="day-btn active" data-day="3">Wed</button>
+      <button class="day-btn active" data-day="4">Thu</button><button class="day-btn active" data-day="5">Fri</button>
+      <button class="day-btn" data-day="6">Sat</button>
+    </div>
+    <div class="modal-label">Icon</div>
+    <div id="icon-picker" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+      <button class="icon-btn active" data-icon="🎯">🎯</button><button class="icon-btn" data-icon="💪">💪</button>
+      <button class="icon-btn" data-icon="📚">📚</button><button class="icon-btn" data-icon="🧘">🧘</button>
+      <button class="icon-btn" data-icon="🏃">🏃</button><button class="icon-btn" data-icon="🌙">🌙</button>
+      <button class="icon-btn" data-icon="☀️">☀️</button><button class="icon-btn" data-icon="🧠">🧠</button>
+    </div>
+    <button class="modal-confirm" onclick="saveNewFocus()">Create Focus</button>
+    <button class="modal-cancel" onclick="closeModal('modal-new-focus')">Cancel</button>
+  </div>
+</div>
+
+<!-- BYPASS MODAL -->
+<div class="modal-bg" id="modal-bypass">
+  <div class="modal">
+    <div class="modal-title">Use Bypass Token</div>
+    <div class="bypass-warning" id="bypass-warning-text"></div>
+    <div class="bypass-option" onclick="activateBypass(60)"><div><div class="bypass-option-label">1 Hour</div><div class="bypass-option-sub">Resumes at next scheduled start</div></div><span style="color:#555;font-size:18px;">›</span></div>
+    <div class="bypass-option" onclick="activateBypass(120)"><div><div class="bypass-option-label">2 Hours</div><div class="bypass-option-sub">Resumes at next scheduled start</div></div><span style="color:#555;font-size:18px;">›</span></div>
+    <div class="bypass-option" onclick="activateBypass(-1)"><div><div class="bypass-option-label">Until End of Day</div><div class="bypass-option-sub">Resets at midnight — other focuses still active</div></div><span style="color:#555;font-size:18px;">›</span></div>
+    <button class="modal-cancel" onclick="closeModal('modal-bypass')">Cancel</button>
+  </div>
+</div>
+
+<script>
+// ─── Clock ───────────────────────────────────────────────────────
+function updateClock(){
+  const n=new Date();let h=n.getHours(),m=n.getMinutes();
+  const ap=h>=12?'PM':'AM';h=h%12||12;
+  document.getElementById('clock').textContent=h+':'+String(m).padStart(2,'0')+' '+ap;
+}
+updateClock();setInterval(updateClock,10000);
+
+// ─── App catalogue ───────────────────────────────────────────────
+// domain is the website that gets auto-blocked when the app is toggled
+const APPS=[
+  {id:'instagram', name:'Instagram',  domain:'instagram.com',       icon:'📸', bg:'linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)'},
+  {id:'twitter',   name:'X (Twitter)',domain:'x.com',               icon:'🐦', bg:'#000'},
+  {id:'youtube',   name:'YouTube',    domain:'youtube.com',         icon:'▶️', bg:'#FF0000'},
+  {id:'linkedin',  name:'LinkedIn',   domain:'linkedin.com',        icon:'💼', bg:'#0077B5'},
+  {id:'facebook',  name:'Facebook',   domain:'facebook.com',        icon:'💬', bg:'#3b5998'},
+  {id:'netflix',   name:'Netflix',    domain:'netflix.com',         icon:'🎬', bg:'#E50914'},
+  {id:'tiktok',    name:'TikTok',     domain:'tiktok.com',          icon:'🎵', bg:'#111'},
+  {id:'spotify',   name:'Spotify',    domain:'open.spotify.com',    icon:'🎵', bg:'#1DB954'},
+  {id:'discord',   name:'Discord',    domain:'discord.com',         icon:'🎮', bg:'#7289DA'},
+  {id:'whatsapp',  name:'WhatsApp',   domain:'web.whatsapp.com',    icon:'💬', bg:'#25D366'},
+];
+const APP_MAP=Object.fromEntries(APPS.map(a=>[a.id,a]));
+
+// ─── Global state ────────────────────────────────────────────────
+// blockedApps: Set of appIds toggled on globally
+let blockedApps=new Set(['instagram','twitter','netflix']);
+// customSites: manually added domains (not auto-synced from apps)
+let customSites=['reddit.com','news.ycombinator.com'];
+let bypassTokens=3;
+let bypassActiveUntil=null;
+let currentDetailId=null;
+
+// Derived: auto-blocked domains = domains whose appId is in blockedApps
+function autoBlockedDomains(){
+  return APPS.filter(a=>blockedApps.has(a.id)).map(a=>a.domain);
+}
+
+// Per-focus schedules
+let focusSchedules=[
+  {id:'f1',name:'Work Hours',   purpose:'Stay focused on work tasks',start:'09:00',end:'17:00',days:[1,2,3,4,5],icon:'🎯',active:true,
+   focusApps:new Set(['instagram','twitter','tiktok','youtube','netflix']),
+   focusSites:[]},
+  {id:'f2',name:'Evening Wind-Down',purpose:'Unplug before bed',  start:'21:00',end:'23:59',days:[0,1,2,3,4,5,6],icon:'🌙',active:true,
+   focusApps:new Set(['instagram','twitter','tiktok','discord']),
+   focusSites:[]},
+];
+let focusIdCounter=3;
+let selectedDays=[0,1,2,3,4,5];
+let selectedIcon='🎯';
+
+// ─── Helpers ─────────────────────────────────────────────────────
+function fmt12(t){const[hh,mm]=t.split(':').map(Number);const ap=hh>=12?'PM':'AM';const h=hh%12||12;return h+':'+(mm<10?'0':'')+mm+' '+ap;}
+function dayLabel(days){
+  if(days.length===7)return'Daily';
+  const s=JSON.stringify([...days].sort((a,b)=>a-b));
+  if(s==='[1,2,3,4,5]')return'Mon–Fri';
+  if(s==='[0,6]')return'Weekends';
+  return[...days].sort((a,b)=>a-b).map(d=>['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ');
+}
+function isActiveNow(f){
+  if(!f.active)return false;
+  const now=new Date();const dow=now.getDay();
+  if(!f.days.includes(dow))return false;
+  const cur=now.getHours()*60+now.getMinutes();
+  const[sh,sm]=f.start.split(':').map(Number);const[eh,em]=f.end.split(':').map(Number);
+  return cur>=sh*60+sm&&cur<=eh*60+em;
+}
+function getActiveFocus(){return focusSchedules.find(f=>isActiveNow(f))||null;}
+function getNextFocus(){
+  const now=new Date();const cur=now.getHours()*60+now.getMinutes();const dow=now.getDay();
+  let best=null,bestMin=Infinity;
+  for(const f of focusSchedules){
+    if(!f.active)continue;
+    const[sh,sm]=f.start.split(':').map(Number);const mins=sh*60+sm;
+    for(let d=0;d<7;d++){
+      const day=(dow+d)%7;if(!f.days.includes(day))continue;
+      const diff=d===0?mins-cur:mins+1440*d-cur;
+      if(diff>0&&diff<bestMin){bestMin=diff;best=f;}break;
+    }
+  }
+  return best;
+}
+function isBypassed(){
+  if(!bypassActiveUntil)return false;
+  if(bypassActiveUntil===-1)return new Date()<new Date(new Date().toDateString()+' 23:59:59');
+  return new Date()<bypassActiveUntil;
+}
+function tokenDotsHTML(count,total=3,big=false){
+  const cls=big?'dts-dot':'token';
+  return[...Array(total)].map((_,i)=>'<div class="'+cls+(i>=count?' used':'')+'"></div>').join('');
+}
+
+// ─── Global Apps panel ────────────────────────────────────────────
+// When an app is toggled ON, its domain auto-appears in the websites panel.
+// When toggled OFF, the domain is removed from auto list.
+function renderGlobalApps(){
+  APPS.forEach(app=>{
+    const el=document.getElementById('gac-'+app.id);
+    if(!el)return;
+    const on=blockedApps.has(app.id);
+    el.innerHTML=
+      '<div class="app-card">'+
+        '<div class="app-icon" style="background:'+app.bg+';">'+app.icon+'</div>'+
+        '<div class="app-info">'+
+          '<div class="app-name">'+app.name+'</div>'+
+          '<div class="app-sub">'+app.domain+(on?' · auto-blocked':' · not blocked')+'</div>'+
+        '</div>'+
+        '<div class="toggle-wrap">'+
+          '<button class="toggle'+(on?' on':'')+'" onclick="toggleGlobalApp(\''+app.id+'\')"></button>'+
+          (on?'<span class="auto-badge">AUTO</span>':'')+
+        '</div>'+
+      '</div>';
+  });
+}
+
+function toggleGlobalApp(id){
+  if(blockedApps.has(id))blockedApps.delete(id);
+  else blockedApps.add(id);
+  renderGlobalApps();
+  renderGlobalSites();
+  updateStats();
+}
+
+// ─── Global Websites panel ────────────────────────────────────────
+function renderGlobalSites(){
+  // Auto-blocked section
+  const al=document.getElementById('auto-sites-list');
+  const autoDomains=autoBlockedDomains();
+  if(autoDomains.length===0){
+    al.innerHTML='<div style="color:#555;font-size:13px;padding:10px 18px;font-style:italic;">Block an app above to auto-block its website.</div>';
+  } else {
+    al.innerHTML=autoDomains.map(domain=>{
+      const app=APPS.find(a=>a.domain===domain);
+      return '<div class="web-row">'+
+        '<div class="web-icon">'+app.icon+'</div>'+
+        '<div class="app-info"><div class="web-url">'+domain+'</div><div class="web-domain">Auto-blocked via '+app.name+'</div></div>'+
+        '<button class="toggle on locked" disabled title="Toggle the app to unblock"></button>'+
+      '</div><div class="divider"></div>';
+    }).join('');
+  }
+  // Custom sites section
+  const cl=document.getElementById('custom-sites-list');
+  if(customSites.length===0){
+    cl.innerHTML='<div style="color:#555;font-size:13px;padding:10px 18px;font-style:italic;">No custom sites added yet.</div>';
+  } else {
+    cl.innerHTML=customSites.map((site,i)=>
+      '<div class="web-row" id="csr-'+i+'">'+
+        '<div class="web-icon">🔗</div>'+
+        '<div class="app-info"><div class="web-url">'+site+'</div><div class="web-domain">'+site.split('/')[0]+'</div></div>'+
+        '<button class="toggle on" onclick="removeCustomSite('+i+')"></button>'+
+      '</div><div class="divider"></div>'
+    ).join('');
+  }
+  updateStats();
+}
+
+function addGlobalSite(){
+  const inp=document.getElementById('site-input');
+  let url=inp.value.trim().replace(/^https?:\/\//,'').replace(/\/$/,'');
+  if(!url)return;
+  // Don't add if it's already auto-blocked
+  if(autoBlockedDomains().includes(url)){inp.value='';return;}
+  if(!customSites.includes(url))customSites.push(url);
+  inp.value='';inp.blur();
+  renderGlobalSites();
+}
+
+function removeCustomSite(i){
+  customSites.splice(i,1);
+  renderGlobalSites();
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────
+function renderDashboard(){
+  const af=getActiveFocus();const bp=isBypassed();
+  const badge=document.getElementById('status-badge');
+  if(bp){badge.className='bypassed-badge';badge.innerHTML='<div class="dot-bypass"></div><span>Bypassed</span>';}
+  else if(af){badge.className='blocker-badge';badge.innerHTML='<div class="dot-on"></div><span>'+af.name+' Active</span>';}
+  else{badge.className='blocker-badge';badge.innerHTML='<div class="dot-on"></div><span>Blocking Active</span>';}
+
+  // Active focus card
+  const aw=document.getElementById('dash-active-wrap');
+  if(af){
+    const byp=isBypassed();
+    const bLabel=byp?'⏸ Bypassed':'🔓 Bypass';
+    const bCls='bypass-btn'+(byp?' bypassed':'');
+    const bDis=(bypassTokens<=0&&!byp)||byp?'disabled':'';
+    aw.innerHTML=
+      '<div class="dash-card active-focus" onclick="openDetail(\''+af.id+'\')">'+
+        '<div class="dash-card-header active-bg">'+
+          '<span class="dash-card-label red">🔴 Focus Active</span>'+
+          '<div class="lock-badge"><span>🔒 Locked</span></div>'+
+        '</div>'+
+        '<div class="dash-card-body">'+
+          '<div style="font-size:26px;margin-bottom:5px;">'+af.icon+'</div>'+
+          '<div class="dash-focus-name">'+af.name+'</div>'+
+          '<div class="dash-focus-purpose">'+af.purpose+'</div>'+
+          '<div class="dash-time-row">'+
+            '<div class="dash-time-box"><div class="dash-time-val">'+fmt12(af.start)+'</div><div class="dash-time-lbl">Started</div></div>'+
+            '<div class="dash-time-box"><div class="dash-time-val">'+fmt12(af.end)+'</div><div class="dash-time-lbl">Ends</div></div>'+
+            '<div class="dash-time-box"><div class="dash-time-val">'+dayLabel(af.days)+'</div><div class="dash-time-lbl">Days</div></div>'+
+          '</div>'+
+        '</div>'+
+        '<div class="bypass-row">'+
+          '<div style="display:flex;flex-direction:column;gap:5px;">'+
+            '<div style="color:#555;font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">Bypass Tokens</div>'+
+            '<div class="bypass-tokens">'+tokenDotsHTML(bypassTokens)+'</div>'+
+          '</div>'+
+          '<button class="'+bCls+'" '+bDis+' onclick="event.stopPropagation();openBypassModal()">'+bLabel+'</button>'+
+        '</div>'+
+        '<div class="tap-hint">👆 Tap card to view restrictions</div>'+
+      '</div>';
+  } else {
+    aw.innerHTML=
+      '<div class="dash-card" style="cursor:default;">'+
+        '<div class="dash-card-body" style="text-align:center;padding:24px 16px;">'+
+          '<div style="font-size:32px;margin-bottom:8px;">✅</div>'+
+          '<div class="dash-focus-name" style="font-size:17px;">No Active Focus</div>'+
+          '<div class="dash-focus-purpose">You\'re in free time right now.</div>'+
+        '</div>'+
+      '</div>';
+  }
+
+  // Next focus card
+  const nf=getNextFocus();
+  const nw=document.getElementById('dash-next-wrap');
+  if(nf){
+    nw.innerHTML=
+      '<div class="dash-card" onclick="openDetail(\''+nf.id+'\')">'+
+        '<div class="dash-card-header"><span class="dash-card-label grey">Up next — tap to view</span></div>'+
+        '<div class="dash-card-body">'+
+          '<div class="dash-next-body">'+
+            '<div style="font-size:24px;">'+nf.icon+'</div>'+
+            '<div><div class="dash-focus-name" style="font-size:16px;">'+nf.name+'</div>'+
+            '<div style="color:#888;font-size:12px;margin-top:2px;">'+fmt12(nf.start)+' – '+fmt12(nf.end)+' · '+dayLabel(nf.days)+'</div></div>'+
+            '<span style="color:#333;font-size:20px;margin-left:auto;">›</span>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+  } else {
+    nw.innerHTML='<div class="dash-empty"><span class="emoji">📭</span>No upcoming focus scheduled.</div>';
+  }
+}
+
+// ─── Focus Detail Panel ───────────────────────────────────────────
+function openDetail(id){
+  const f=focusSchedules.find(x=>x.id===id);
+  if(!f)return;
+  currentDetailId=id;
+  const locked=isActiveNow(f);
+  document.getElementById('detail-title').textContent=f.name;
+  renderDetailStatic(f,locked);
+  renderDetailContent(f,locked);
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+function renderDetailStatic(f,locked){
+  // hero + token strip + optional locked banner — never re-rendered on interaction
+  document.getElementById('detail-static').innerHTML=
+    // Hero
+    '<div class="detail-hero">'+
+      '<div class="detail-hero-row">'+
+        '<div class="detail-hero-icon">'+f.icon+'</div>'+
+        '<div><div class="detail-hero-name">'+f.name+'</div><div class="detail-hero-purpose">'+f.purpose+'</div></div>'+
+      '</div>'+
+      '<div class="detail-chips">'+
+        '<div class="detail-chip"><div class="detail-chip-val">'+fmt12(f.start)+'</div><div class="detail-chip-lbl">Start</div></div>'+
+        '<div class="detail-chip"><div class="detail-chip-val">'+fmt12(f.end)+'</div><div class="detail-chip-lbl">End</div></div>'+
+        '<div class="detail-chip"><div class="detail-chip-val">'+dayLabel(f.days)+'</div><div class="detail-chip-lbl">Days</div></div>'+
+      '</div>'+
+    '</div>'+
+    // Token strip — always visible, always up to date
+    '<div class="detail-token-strip" id="detail-token-strip">'+
+      '<div class="dts-left">'+
+        '<div class="dts-label">Bypass Tokens</div>'+
+        '<div class="dts-sub" id="dts-sub-text">'+bypassTokens+' remaining this month</div>'+
+      '</div>'+
+      '<div class="dts-right">'+
+        '<div class="dts-dots" id="dts-dots">'+tokenDotsHTML(bypassTokens,3,true)+'</div>'+
+        '<div class="dts-count" id="dts-count">'+bypassTokens+'/3</div>'+
+        (locked&&bypassTokens>0&&!isBypassed()?'<button style="background:rgba(224,90,107,0.15);border:0.5px solid rgba(224,90,107,0.35);color:#e05a6b;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:6px;" onclick="openBypassModal()">Bypass</button>':'')+
+      '</div>'+
+    '</div>'+
+    // Locked banner (only when active)
+    (locked?
+      '<div class="locked-banner">'+
+        '<span style="font-size:20px;flex-shrink:0;">🔒</span>'+
+        '<div><div class="locked-banner-text">This focus is currently active</div>'+
+        '<div class="locked-banner-sub">View-only while running. Use a bypass token to pause it.</div></div>'+
+      '</div>':''
+    );
+}
+
+function refreshDetailTokens(){
+  const d=document.getElementById('dts-dots');
+  const c=document.getElementById('dts-count');
+  const s=document.getElementById('dts-sub-text');
+  if(d)d.innerHTML=tokenDotsHTML(bypassTokens,3,true);
+  if(c)c.textContent=bypassTokens+'/3';
+  if(s)s.textContent=bypassTokens+' remaining this month';
+}
+
+function renderDetailContent(f,locked){
+  const dc=document.getElementById('detail-content');
+  let h='';
+
+  // ── Blocked Apps ──
+  h+='<div class="section-label">Apps Blocked in This Focus</div>';
+  // auto-domain tracking: if app is blocked in focus, its domain is included automatically
+  APPS.forEach(app=>{
+    const on=f.focusApps.has(app.id);
+    const tCls='toggle'+(on?' on':'')+(locked?' locked':'');
+    const handler=locked?'':'onclick="toggleFocusApp(\''+f.id+'\',\''+app.id+'\')"';
+    h+='<div class="app-card">'+
+        '<div class="app-icon" style="background:'+app.bg+';">'+app.icon+'</div>'+
+        '<div class="app-info"><div class="app-name">'+app.name+'</div>'+
+        '<div class="app-sub">'+app.domain+(on?' · blocked in focus':'')+'</div></div>'+
+        '<div class="toggle-wrap">'+
+          '<button class="'+tCls+'" '+(locked?'disabled':'')+' '+handler+'></button>'+
+          (on?'<span class="auto-badge">+WEB</span>':'')+
+        '</div>'+
+      '</div><div class="divider"></div>';
+  });
+
+  // ── Auto-blocked websites from focus apps ──
+  const focusAutoDomains=APPS.filter(a=>f.focusApps.has(a.id)).map(a=>a.domain);
+  h+='<div class="section-label">Auto-blocked Websites</div>';
+  if(focusAutoDomains.length===0){
+    h+='<div style="color:#555;font-size:13px;padding:10px 18px;font-style:italic;">Block an app above to auto-add its website.</div>';
+  } else {
+    focusAutoDomains.forEach(domain=>{
+      const app=APPS.find(a=>a.domain===domain);
+      h+='<div class="web-row"><div class="web-icon">'+app.icon+'</div>'+
+          '<div class="app-info"><div class="web-url">'+domain+'</div><div class="web-domain">Auto via '+app.name+'</div></div>'+
+          '<button class="toggle on locked" disabled></button></div><div class="divider"></div>';
+    });
+  }
+
+  // ── Custom extra websites for this focus ──
+  h+='<div class="section-label">Extra Blocked Websites</div>';
+  if(!locked){
+    h+='<div class="detail-web-add-row">'+
+        '<input class="detail-web-input" id="dwi-'+f.id+'" placeholder="e.g. distracting-site.com" autocapitalize="none" autocorrect="off"/>'+
+        '<button class="detail-web-add-btn" onclick="addFocusSite(\''+f.id+'\')">Add</button>'+
+      '</div>';
+  }
+  if(f.focusSites.length===0){
+    h+='<div style="color:#555;font-size:13px;padding:10px 18px;font-style:italic;">No extra websites blocked for this focus.</div>';
+  } else {
+    f.focusSites.forEach((site,i)=>{
+      h+='<div class="web-row"><div class="web-icon">🔗</div>'+
+          '<div class="app-info"><div class="web-url">'+site+'</div><div class="web-domain">'+site.split('/')[0]+'</div></div>'+
+          (locked
+            ?'<button class="toggle on locked" disabled></button>'
+            :'<button class="toggle on" onclick="removeFocusSite(\''+f.id+'\','+i+')"></button>')+
+        '</div><div class="divider"></div>';
+    });
+  }
+
+  // ── Focus toggle + delete (only when not active) ──
+  if(!locked){
+    h+='<div class="section-label">Schedule Status</div>'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;">'+
+        '<div><div style="color:#e8e8f0;font-size:14px;font-weight:600;">Enable this Focus</div>'+
+        '<div style="color:#555;font-size:11px;margin-top:2px;">Turns blocking on/off for this schedule</div></div>'+
+        '<button class="toggle'+(f.active?' on':'')+'" onclick="toggleFocusActive(\''+f.id+'\')"></button>'+
+      '</div>';
+    h+='<button class="del-focus-btn" onclick="deleteFocusFromDetail(\''+f.id+'\')">Delete This Focus</button>';
+  }
+  h+='<div style="height:24px;"></div>';
+  dc.innerHTML=h;
+}
+
+function closeDetail(){
+  document.getElementById('detail-panel').classList.remove('open');
+  currentDetailId=null;
+  renderFocusCards();
+  renderDashboard();
+}
+
+// ─── Per-focus actions ────────────────────────────────────────────
+function toggleFocusApp(fid,appId){
+  const f=focusSchedules.find(x=>x.id===fid);
+  if(!f||isActiveNow(f))return;
+  if(f.focusApps.has(appId))f.focusApps.delete(appId);
+  else f.focusApps.add(appId);
+  renderDetailContent(f,false);
+}
+function addFocusSite(fid){
+  const f=focusSchedules.find(x=>x.id===fid);if(!f)return;
+  const inp=document.getElementById('dwi-'+fid);
+  let url=inp.value.trim().replace(/^https?:\/\//,'').replace(/\/$/,'');
+  if(!url)return;
+  f.focusSites.push(url);inp.value='';
+  renderDetailContent(f,false);
+}
+function removeFocusSite(fid,idx){
+  const f=focusSchedules.find(x=>x.id===fid);if(!f)return;
+  f.focusSites.splice(idx,1);renderDetailContent(f,false);
+}
+function toggleFocusActive(fid){
+  const f=focusSchedules.find(x=>x.id===fid);
+  if(!f||isActiveNow(f))return;
+  f.active=!f.active;renderDetailContent(f,false);
+}
+function deleteFocusFromDetail(fid){
+  focusSchedules=focusSchedules.filter(x=>x.id!==fid);
+  closeDetail();
+}
+
+// ─── Customize panel ─────────────────────────────────────────────
+function renderCustomizeTokens(){
+  const num=document.getElementById('cust-token-num');
+  const bar=document.getElementById('cust-token-bar');
+  if(num)num.textContent=bypassTokens;
+  if(bar)bar.innerHTML=[...Array(3)].map((_,i)=>
+    '<div class="token-bar-seg '+(i<bypassTokens?'filled':'empty')+'"></div>'
+  ).join('');
+}
+
+function renderFocusCards(){
+  const container=document.getElementById('focus-cards');if(!container)return;
+  container.innerHTML='';
+  document.getElementById('focus-count-num').textContent=focusSchedules.length;
+  document.getElementById('add-focus-btn').className='add-focus-btn'+(focusSchedules.length>=10?' maxed':'');
+  focusSchedules.forEach(f=>{
+    const active=isActiveNow(f);
+    const appCount=f.focusApps.size;
+    const webCount=APPS.filter(a=>f.focusApps.has(a.id)).length+f.focusSites.length;
+    const div=document.createElement('div');
+    div.className='focus-card';
+    div.onclick=()=>openDetail(f.id);
+    div.innerHTML=
+      '<div class="focus-card-header">'+
+        '<div class="focus-card-icon">'+f.icon+'</div>'+
+        '<div style="flex:1;min-width:0;">'+
+          '<div class="focus-card-name">'+f.name+(active?' <span style="color:#e05a6b;font-size:10px;">● Active</span>':'')+'</div>'+
+          '<div class="focus-card-time">'+fmt12(f.start)+' – '+fmt12(f.end)+' · '+dayLabel(f.days)+'</div>'+
+        '</div>'+
+        '<span style="color:#333;font-size:20px;flex-shrink:0;">›</span>'+
+      '</div>'+
+      '<div class="focus-card-footer">'+
+        '<span class="focus-card-purpose">'+f.purpose+'</span>'+
+        '<span style="color:#555;font-size:10px;flex-shrink:0;margin-left:8px;">'+appCount+' apps · '+webCount+' sites'+(active?' 🔒':'')+'</span>'+
+      '</div>';
+    container.appendChild(div);
+  });
+  renderCustomizeTokens();
+}
+
+// ─── Bypass ──────────────────────────────────────────────────────
+function openBypassModal(){
+  if(bypassTokens<=0||isBypassed())return;
+  document.getElementById('bypass-warning-text').textContent=
+    '⚠️ '+bypassTokens+' bypass token'+(bypassTokens===1?'':'s')+' left this month. Only pauses the current focus — others stay active.';
+  document.getElementById('modal-bypass').classList.add('show');
+}
+function activateBypass(minutes){
+  bypassTokens=Math.max(0,bypassTokens-1);
+  bypassActiveUntil=minutes===-1?-1:new Date(Date.now()+minutes*60000);
+  closeModal('modal-bypass');
+  updateStats();renderDashboard();renderCustomizeTokens();
+  refreshDetailTokens();
+}
+
+// ─── New Focus modal ─────────────────────────────────────────────
+function openNewFocusModal(){
+  if(focusSchedules.length>=10)return;
+  ['new-focus-name','new-focus-purpose'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('new-focus-start').value='09:00';
+  document.getElementById('new-focus-end').value='17:00';
+  selectedDays=[0,1,2,3,4,5];
+  document.querySelectorAll('.day-btn').forEach(b=>b.classList.toggle('active',selectedDays.includes(parseInt(b.dataset.day))));
+  selectedIcon='🎯';
+  document.querySelectorAll('.icon-btn').forEach(b=>b.classList.toggle('active',b.dataset.icon==='🎯'));
+  document.getElementById('modal-new-focus').classList.add('show');
+  setTimeout(()=>document.getElementById('new-focus-name').focus(),300);
+}
+function saveNewFocus(){
+  const name=document.getElementById('new-focus-name').value.trim();
+  const purpose=document.getElementById('new-focus-purpose').value.trim();
+  const start=document.getElementById('new-focus-start').value;
+  const end=document.getElementById('new-focus-end').value;
+  if(!name){document.getElementById('new-focus-name').focus();return;}
+  if(!selectedDays.length){alert('Pick at least one day.');return;}
+  focusSchedules.push({id:'f'+focusIdCounter++,name,purpose:purpose||'Stay focused',start,end,days:[...selectedDays],icon:selectedIcon,active:true,focusApps:new Set(),focusSites:[]});
+  closeModal('modal-new-focus');renderFocusCards();renderDashboard();
+}
+document.querySelectorAll('.day-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const d=parseInt(b.dataset.day);
+    if(selectedDays.includes(d)){if(selectedDays.length===1)return;selectedDays=selectedDays.filter(x=>x!==d);}
+    else selectedDays.push(d);
+    b.classList.toggle('active',selectedDays.includes(d));
+  });
+});
+document.querySelectorAll('.icon-btn').forEach(b=>{
+  b.addEventListener('click',()=>{document.querySelectorAll('.icon-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');selectedIcon=b.dataset.icon;});
+});
+
+// ─── Nav & sidebar ────────────────────────────────────────────────
+function switchTab(tab){
+  ['dash','apps','sites','customize'].forEach(t=>{
+    document.getElementById('panel-'+t).classList.remove('active');
+    document.getElementById('nav-'+t).classList.remove('active');
+    const sb=document.getElementById('sb-'+t);if(sb)sb.classList.remove('active');
+  });
+  document.getElementById('panel-'+tab).classList.add('active');
+  document.getElementById('nav-'+tab).classList.add('active');
+  const sb=document.getElementById('sb-'+tab);if(sb)sb.classList.add('active');
+  if(tab==='dash')renderDashboard();
+  if(tab==='apps')renderGlobalApps();
+  if(tab==='sites')renderGlobalSites();
+  if(tab==='customize')renderFocusCards();
+}
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').style.display='block';}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').style.display='none';}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+
+// ─── Stats ───────────────────────────────────────────────────────
+function updateStats(){
+  const autoCount=autoBlockedDomains().length;
+  const total=blockedApps.size+customSites.length+autoCount;
+  document.getElementById('stat-total').textContent=total;
+  document.getElementById('sb-app-count').textContent=blockedApps.size;
+  document.getElementById('sb-site-count').textContent=autoCount+customSites.length;
+  document.getElementById('stat-bypass').textContent=bypassTokens;
+}
+function updateStrict(v){document.getElementById('strict-lbl').textContent=['','Low','Medium','High'][v];}
+
+document.getElementById('site-input').addEventListener('keydown',e=>{if(e.key==='Enter')addGlobalSite();});
+
+// ─── Init ─────────────────────────────────────────────────────────
+renderGlobalApps();
+renderGlobalSites();
+renderDashboard();
+renderFocusCards();
+updateStats();
+</script>
+</body>
+</html>

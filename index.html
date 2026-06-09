@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="FocusLock"/>
+  <meta name="theme-color" content="#0a0a0f"/>
+  <title>FocusLock</title>
+  <!-- Styles live in styles.css -->
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<div class="screen">
+  <div class="statusbar"><span id="clock">9:41</span><span>● ● ●</span></div>
+  <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">🔒 FocusLock</div>
+      <div class="sidebar-sub">Your blocking manager</div>
+    </div>
+    <div class="sidebar-menu">
+      <div class="sidebar-item" id="sb-dash" onclick="switchTab('dash');closeSidebar();"><span class="sidebar-icon">🏠</span><span class="sidebar-text">Dashboard</span></div>
+      <div class="sidebar-item" id="sb-apps" onclick="switchTab('apps');closeSidebar();"><span class="sidebar-icon">📱</span><span class="sidebar-text">Block Apps</span><span class="blocked-count" id="sb-app-count">3</span></div>
+      <div class="sidebar-item" id="sb-sites" onclick="switchTab('sites');closeSidebar();"><span class="sidebar-icon">🌐</span><span class="sidebar-text">Block Websites</span><span class="blocked-count" id="sb-site-count">2</span></div>
+      <div class="sidebar-item" id="sb-customize" onclick="switchTab('customize');closeSidebar();"><span class="sidebar-icon">⚙️</span><span class="sidebar-text">Customize</span></div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-num" id="stat-total">5</div><div class="stat-lbl">Blocked</div></div>
+        <div class="stat-box"><div class="stat-num" id="stat-bypass">3</div><div class="stat-lbl">Bypasses Left</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="menu-btn" onclick="openSidebar()">☰</button>
+      <div><h1>FocusLock</h1></div>
+    </div>
+    <div class="blocker-badge" id="status-badge"><div class="dot-on"></div><span>Blocking Active</span></div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="panel-dash" class="panel active">
+    <div class="content">
+      <div class="section-label">Current Focus</div>
+      <div id="dash-active-wrap"></div>
+      <div class="section-label" style="padding-top:4px;">Up Next</div>
+      <div id="dash-next-wrap"></div>
+      <div style="height:24px;"></div>
+    </div>
+  </div>
+
+  <!-- APPS PANEL -->
+  <div id="panel-apps" class="panel">
+    <div style="padding:10px 18px 4px;flex-shrink:0;">
+      <div style="background:rgba(99,200,120,0.08);border:0.5px solid rgba(99,200,120,0.2);border-radius:10px;padding:9px 12px;font-size:12px;color:#63c878;font-weight:600;">
+        ✓ Toggling an app automatically blocks its website too
+      </div>
+    </div>
+    <div class="content" id="global-apps-list">
+      <div class="section-label">Social</div>
+      <div id="gac-instagram"></div><div class="divider"></div>
+      <div id="gac-twitter"></div><div class="divider"></div>
+      <div id="gac-youtube"></div><div class="divider"></div>
+      <div id="gac-linkedin"></div><div class="divider"></div>
+      <div id="gac-facebook"></div>
+      <div class="section-label">Entertainment</div>
+      <div id="gac-netflix"></div><div class="divider"></div>
+      <div id="gac-tiktok"></div><div class="divider"></div>
+      <div id="gac-spotify"></div>
+      <div class="section-label">Gaming &amp; Chat</div>
+      <div id="gac-discord"></div><div class="divider"></div>
+      <div id="gac-whatsapp"></div>
+      <div style="height:24px;"></div>
+    </div>
+  </div>
+
+  <!-- WEBSITES PANEL -->
+  <div id="panel-sites" class="panel">
+    <div class="website-input-wrap"><input class="website-input" id="site-input" placeholder="e.g. reddit.com" autocapitalize="none" autocorrect="off" spellcheck="false"/></div>
+    <button class="add-btn" onclick="addGlobalSite()">+ Add Website</button>
+    <div class="content">
+      <div class="section-label">Auto-blocked (from Apps)</div>
+      <div id="auto-sites-list"></div>
+      <div class="section-label">Custom Blocked Sites</div>
+      <div id="custom-sites-list"></div>
+      <div style="height:24px;"></div>
+    </div>
+  </div>
+
+  <!-- CUSTOMIZE PANEL -->
+  <div id="panel-customize" class="panel">
+    <div class="content">
+      <div class="section-label">Bypass Tokens</div>
+      <div class="token-card" style="margin-bottom:14px;">
+        <div class="token-card-row">
+          <div><div class="token-card-title">Monthly Bypasses</div><div class="token-card-sub">Resets on the 1st of each month</div></div>
+          <div class="token-card-count" id="cust-token-num">3</div>
+        </div>
+        <div class="token-bar-track" id="cust-token-bar"></div>
+      </div>
+      <div class="section-label">Focus Schedules</div>
+      <div class="focus-count-bar">
+        <span class="focus-count-text">Tap a focus to view or edit</span>
+        <span class="focus-count-text"><span class="focus-count-num" id="focus-count-num">2</span> / 10</span>
+      </div>
+      <div id="focus-cards"></div>
+      <button class="add-focus-btn" id="add-focus-btn" onclick="openNewFocusModal()">+ Focus</button>
+      <div class="section-label">Block Strength</div>
+      <div style="padding:0 18px 16px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+          <span style="color:#e8e8f0;font-size:14px;font-weight:600;">Strictness</span>
+          <span style="color:#e05a6b;font-size:14px;font-weight:700;" id="strict-lbl">High</span>
+        </div>
+        <input type="range" min="1" max="3" value="3" oninput="updateStrict(this.value)"/>
+        <div class="strict-labels"><span>Low — easy bypass</span><span>High — locked</span></div>
+      </div>
+      <div style="height:24px;"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div class="bottom-nav">
+    <button class="nav-btn active" id="nav-dash" onclick="switchTab('dash')"><span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span></button>
+    <button class="nav-btn" id="nav-apps" onclick="switchTab('apps')"><span class="nav-icon">📱</span><span class="nav-label">Apps</span></button>
+    <button class="nav-btn" id="nav-sites" onclick="switchTab('sites')"><span class="nav-icon">🌐</span><span class="nav-label">Websites</span></button>
+    <button class="nav-btn" id="nav-customize" onclick="switchTab('customize')"><span class="nav-icon">⚙️</span><span class="nav-label">Customize</span></button>
+  </div>
+
+  <!-- FOCUS DETAIL SLIDE-IN -->
+  <div class="detail-panel" id="detail-panel">
+    <div class="detail-topbar">
+      <button class="back-btn" onclick="closeDetail()">‹ Back</button>
+      <div class="detail-title-text" id="detail-title">Focus</div>
+      <div class="detail-spacer"></div>
+    </div>
+    <div id="detail-static"></div><!-- hero + token strip + locked banner -->
+    <div class="content" id="detail-content"></div>
+  </div>
+</div>
+
+<!-- NEW FOCUS MODAL -->
+<div class="modal-bg" id="modal-new-focus">
+  <div class="modal">
+    <div class="modal-title">New Focus Schedule</div>
+    <div class="modal-label">Name</div>
+    <input class="modal-input" id="new-focus-name" placeholder="e.g. Deep Work, No Scroll, Gym Time" maxlength="30"/>
+    <div class="modal-label">Purpose / Goal</div>
+    <input class="modal-input" id="new-focus-purpose" placeholder="e.g. Stay focused on work tasks" maxlength="60"/>
+    <div class="modal-row">
+      <div style="flex:1;"><div class="modal-label">Start</div><input class="modal-input" id="new-focus-start" type="time" value="09:00"/></div>
+      <div style="flex:1;"><div class="modal-label">End</div><input class="modal-input" id="new-focus-end" type="time" value="17:00"/></div>
+    </div>
+    <div class="modal-label">Days</div>
+    <div id="day-picker" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+      <button class="day-btn active" data-day="0">Sun</button><button class="day-btn active" data-day="1">Mon</button>
+      <button class="day-btn active" data-day="2">Tue</button><button class="day-btn active" data-day="3">Wed</button>
+      <button class="day-btn active" data-day="4">Thu</button><button class="day-btn active" data-day="5">Fri</button>
+      <button class="day-btn" data-day="6">Sat</button>
+    </div>
+    <div class="modal-label">Icon</div>
+    <div id="icon-picker" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+      <button class="icon-btn active" data-icon="🎯">🎯</button><button class="icon-btn" data-icon="💪">💪</button>
+      <button class="icon-btn" data-icon="📚">📚</button><button class="icon-btn" data-icon="🧘">🧘</button>
+      <button class="icon-btn" data-icon="🏃">🏃</button><button class="icon-btn" data-icon="🌙">🌙</button>
+      <button class="icon-btn" data-icon="☀️">☀️</button><button class="icon-btn" data-icon="🧠">🧠</button>
+    </div>
+    <button class="modal-confirm" onclick="saveNewFocus()">Create Focus</button>
+    <button class="modal-cancel" onclick="closeModal('modal-new-focus')">Cancel</button>
+  </div>
+</div>
+
+<!-- BYPASS MODAL -->
+<div class="modal-bg" id="modal-bypass">
+  <div class="modal">
+    <div class="modal-title">Use Bypass Token</div>
+    <div class="bypass-warning" id="bypass-warning-text"></div>
+    <div class="bypass-option" onclick="activateBypass(60)"><div><div class="bypass-option-label">1 Hour</div><div class="bypass-option-sub">Resumes at next scheduled start</div></div><span style="color:#555;font-size:18px;">›</span></div>
+    <div class="bypass-option" onclick="activateBypass(120)"><div><div class="bypass-option-label">2 Hours</div><div class="bypass-option-sub">Resumes at next scheduled start</div></div><span style="color:#555;font-size:18px;">›</span></div>
+    <div class="bypass-option" onclick="activateBypass(-1)"><div><div class="bypass-option-label">Until End of Day</div><div class="bypass-option-sub">Resets at midnight — other focuses still active</div></div><span style="color:#555;font-size:18px;">›</span></div>
+    <button class="modal-cancel" onclick="closeModal('modal-bypass')">Cancel</button>
+  </div>
+</div>
+
+<!-- App logic lives in app.js (loaded last so the DOM exists when it runs) -->
+<script src="app.js"></script>
+</body>
+</html>
