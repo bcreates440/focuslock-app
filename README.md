@@ -19,8 +19,8 @@ has one obvious place to make it:
 - **Add a blockable app** → add an entry to the `APPS` array in `app.js`, then add a
   matching `<div id="gac-yourid"></div>` row in the Apps panel of `index.html`.
 - **Change the default focus schedules** → edit `focusSchedules` in `app.js`.
-- **Change the number of monthly bypass tokens** → edit `bypassTokens` in `app.js`.
-- **Restyle the brand color** → find/replace `#e05a6b` in `styles.css`.
+- **Change the number of monthly breaks** → edit `bypassTokens` in `app.js`.
+- **Re-tune the whole color theme** → edit the palette variables in `:root` at the top of `styles.css` (e.g. `--clay`, `--sage`, `--amber`, `--paper`).
 
 ## Note on the JavaScript
 

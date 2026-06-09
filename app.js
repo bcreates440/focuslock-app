@@ -8,7 +8,7 @@
    Quick edit guide:
      • Add/remove a blockable app → edit the APPS array.
      • Change default focus schedules → edit focusSchedules.
-     • Change bypass token count    → edit bypassTokens.
+     • Change the number of monthly breaks → edit bypassTokens.
    Sections are divided by the ─── headers below.
    ============================================================ */
 
@@ -21,18 +21,19 @@ function updateClock(){
 updateClock();setInterval(updateClock,10000);
 
 // ─── App catalogue ───────────────────────────────────────────────
-// domain is the website that gets auto-blocked when the app is toggled
+// domain is the website that gets auto-blocked when the app is toggled.
+// bg are muted, earth-toned "sticker" tiles to match the warm theme.
 const APPS=[
-  {id:'instagram', name:'Instagram',  domain:'instagram.com',       icon:'📸', bg:'linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)'},
-  {id:'twitter',   name:'X (Twitter)',domain:'x.com',               icon:'🐦', bg:'#000'},
-  {id:'youtube',   name:'YouTube',    domain:'youtube.com',         icon:'▶️', bg:'#FF0000'},
-  {id:'linkedin',  name:'LinkedIn',   domain:'linkedin.com',        icon:'💼', bg:'#0077B5'},
-  {id:'facebook',  name:'Facebook',   domain:'facebook.com',        icon:'💬', bg:'#3b5998'},
-  {id:'netflix',   name:'Netflix',    domain:'netflix.com',         icon:'🎬', bg:'#E50914'},
-  {id:'tiktok',    name:'TikTok',     domain:'tiktok.com',          icon:'🎵', bg:'#111'},
-  {id:'spotify',   name:'Spotify',    domain:'open.spotify.com',    icon:'🎵', bg:'#1DB954'},
-  {id:'discord',   name:'Discord',    domain:'discord.com',         icon:'🎮', bg:'#7289DA'},
-  {id:'whatsapp',  name:'WhatsApp',   domain:'web.whatsapp.com',    icon:'💬', bg:'#25D366'},
+  {id:'instagram', name:'Instagram',  domain:'instagram.com',       icon:'📸', bg:'linear-gradient(135deg,#b9714e,#c89a5a)'},
+  {id:'twitter',   name:'X (Twitter)',domain:'x.com',               icon:'🐦', bg:'#4a423a'},
+  {id:'youtube',   name:'YouTube',    domain:'youtube.com',         icon:'▶️', bg:'#b15a4d'},
+  {id:'linkedin',  name:'LinkedIn',   domain:'linkedin.com',        icon:'💼', bg:'#5e7b86'},
+  {id:'facebook',  name:'Facebook',   domain:'facebook.com',        icon:'💬', bg:'#5d6f8f'},
+  {id:'netflix',   name:'Netflix',    domain:'netflix.com',         icon:'🎬', bg:'#a64a40'},
+  {id:'tiktok',    name:'TikTok',     domain:'tiktok.com',          icon:'🎵', bg:'#3e3933'},
+  {id:'spotify',   name:'Spotify',    domain:'open.spotify.com',    icon:'🎵', bg:'#7d9b6c'},
+  {id:'discord',   name:'Discord',    domain:'discord.com',         icon:'🎮', bg:'#7c7caf'},
+  {id:'whatsapp',  name:'WhatsApp',   domain:'web.whatsapp.com',    icon:'💬', bg:'#6fa07a'},
 ];
 const APP_MAP=Object.fromEntries(APPS.map(a=>[a.id,a]));
 
@@ -118,7 +119,7 @@ function renderGlobalApps(){
         '<div class="app-icon" style="background:'+app.bg+';">'+app.icon+'</div>'+
         '<div class="app-info">'+
           '<div class="app-name">'+app.name+'</div>'+
-          '<div class="app-sub">'+app.domain+(on?' · auto-blocked':' · not blocked')+'</div>'+
+          '<div class="app-sub">'+app.domain+(on?' · blocked':' · open')+'</div>'+
         '</div>'+
         '<div class="toggle-wrap">'+
           '<button class="toggle'+(on?' on':'')+'" onclick="toggleGlobalApp(\''+app.id+'\')"></button>'+
@@ -142,13 +143,13 @@ function renderGlobalSites(){
   const al=document.getElementById('auto-sites-list');
   const autoDomains=autoBlockedDomains();
   if(autoDomains.length===0){
-    al.innerHTML='<div style="color:#555;font-size:13px;padding:10px 18px;font-style:italic;">Block an app above to auto-block its website.</div>';
+    al.innerHTML='<div style="color:#a99d87;font-size:13px;padding:11px 20px;font-style:italic;">Block an app above to quietly block its site.</div>';
   } else {
     al.innerHTML=autoDomains.map(domain=>{
       const app=APPS.find(a=>a.domain===domain);
       return '<div class="web-row">'+
         '<div class="web-icon">'+app.icon+'</div>'+
-        '<div class="app-info"><div class="web-url">'+domain+'</div><div class="web-domain">Auto-blocked via '+app.name+'</div></div>'+
+        '<div class="app-info"><div class="web-url">'+domain+'</div><div class="web-domain">Blocked with '+app.name+'</div></div>'+
         '<button class="toggle on locked" disabled title="Toggle the app to unblock"></button>'+
       '</div><div class="divider"></div>';
     }).join('');
@@ -156,7 +157,7 @@ function renderGlobalSites(){
   // Custom sites section
   const cl=document.getElementById('custom-sites-list');
   if(customSites.length===0){
-    cl.innerHTML='<div style="color:#555;font-size:13px;padding:10px 18px;font-style:italic;">No custom sites added yet.</div>';
+    cl.innerHTML='<div style="color:#a99d87;font-size:13px;padding:11px 20px;font-style:italic;">No custom sites added yet.</div>';
   } else {
     cl.innerHTML=customSites.map((site,i)=>
       '<div class="web-row" id="csr-'+i+'">'+
@@ -189,25 +190,25 @@ function removeCustomSite(i){
 function renderDashboard(){
   const af=getActiveFocus();const bp=isBypassed();
   const badge=document.getElementById('status-badge');
-  if(bp){badge.className='bypassed-badge';badge.innerHTML='<div class="dot-bypass"></div><span>Bypassed</span>';}
-  else if(af){badge.className='blocker-badge';badge.innerHTML='<div class="dot-on"></div><span>'+af.name+' Active</span>';}
-  else{badge.className='blocker-badge';badge.innerHTML='<div class="dot-on"></div><span>Blocking Active</span>';}
+  if(bp){badge.className='bypassed-badge';badge.innerHTML='<div class="dot-bypass"></div><span>On a break</span>';}
+  else if(af){badge.className='blocker-badge';badge.innerHTML='<div class="dot-on"></div><span>'+af.name+'</span>';}
+  else{badge.className='blocker-badge';badge.innerHTML='<div class="dot-on"></div><span>Focus is on</span>';}
 
   // Active focus card
   const aw=document.getElementById('dash-active-wrap');
   if(af){
     const byp=isBypassed();
-    const bLabel=byp?'⏸ Bypassed':'🔓 Bypass';
+    const bLabel=byp?'On a break':'Take a break';
     const bCls='bypass-btn'+(byp?' bypassed':'');
     const bDis=(bypassTokens<=0&&!byp)||byp?'disabled':'';
     aw.innerHTML=
       '<div class="dash-card active-focus" onclick="openDetail(\''+af.id+'\')">'+
         '<div class="dash-card-header active-bg">'+
-          '<span class="dash-card-label red">🔴 Focus Active</span>'+
+          '<span class="dash-card-label red">● In focus</span>'+
           '<div class="lock-badge"><span>🔒 Locked</span></div>'+
         '</div>'+
         '<div class="dash-card-body">'+
-          '<div style="font-size:26px;margin-bottom:5px;">'+af.icon+'</div>'+
+          '<div style="font-size:26px;margin-bottom:6px;">'+af.icon+'</div>'+
           '<div class="dash-focus-name">'+af.name+'</div>'+
           '<div class="dash-focus-purpose">'+af.purpose+'</div>'+
           '<div class="dash-time-row">'+
@@ -218,20 +219,20 @@ function renderDashboard(){
         '</div>'+
         '<div class="bypass-row">'+
           '<div style="display:flex;flex-direction:column;gap:5px;">'+
-            '<div style="color:#555;font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">Bypass Tokens</div>'+
+            '<div style="color:#a99d87;font-size:10px;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;">Breaks left</div>'+
             '<div class="bypass-tokens">'+tokenDotsHTML(bypassTokens)+'</div>'+
           '</div>'+
           '<button class="'+bCls+'" '+bDis+' onclick="event.stopPropagation();openBypassModal()">'+bLabel+'</button>'+
         '</div>'+
-        '<div class="tap-hint">👆 Tap card to view restrictions</div>'+
+        '<div class="tap-hint">🤍 Tap to see what\'s quietly tucked away</div>'+
       '</div>';
   } else {
     aw.innerHTML=
       '<div class="dash-card" style="cursor:default;">'+
-        '<div class="dash-card-body" style="text-align:center;padding:24px 16px;">'+
-          '<div style="font-size:32px;margin-bottom:8px;">✅</div>'+
-          '<div class="dash-focus-name" style="font-size:17px;">No Active Focus</div>'+
-          '<div class="dash-focus-purpose">You\'re in free time right now.</div>'+
+        '<div class="dash-card-body" style="text-align:center;padding:26px 18px;">'+
+          '<div style="font-size:32px;margin-bottom:10px;">🌿</div>'+
+          '<div class="dash-focus-name" style="font-size:18px;">Nothing blocking right now</div>'+
+          '<div class="dash-focus-purpose">Enjoy your open time.</div>'+
         '</div>'+
       '</div>';
   }
@@ -247,13 +248,13 @@ function renderDashboard(){
           '<div class="dash-next-body">'+
             '<div style="font-size:24px;">'+nf.icon+'</div>'+
             '<div><div class="dash-focus-name" style="font-size:16px;">'+nf.name+'</div>'+
-            '<div style="color:#888;font-size:12px;margin-top:2px;">'+fmt12(nf.start)+' – '+fmt12(nf.end)+' · '+dayLabel(nf.days)+'</div></div>'+
-            '<span style="color:#333;font-size:20px;margin-left:auto;">›</span>'+
+            '<div style="color:#857a68;font-size:12px;margin-top:2px;">'+fmt12(nf.start)+' – '+fmt12(nf.end)+' · '+dayLabel(nf.days)+'</div></div>'+
+            '<span style="color:#bdb29b;font-size:20px;margin-left:auto;">›</span>'+
           '</div>'+
         '</div>'+
       '</div>';
   } else {
-    nw.innerHTML='<div class="dash-empty"><span class="emoji">📭</span>No upcoming focus scheduled.</div>';
+    nw.innerHTML='<div class="dash-empty"><span class="emoji">📭</span>Nothing planned next.</div>';
   }
 }
 
@@ -287,21 +288,21 @@ function renderDetailStatic(f,locked){
     // Token strip — always visible, always up to date
     '<div class="detail-token-strip" id="detail-token-strip">'+
       '<div class="dts-left">'+
-        '<div class="dts-label">Bypass Tokens</div>'+
-        '<div class="dts-sub" id="dts-sub-text">'+bypassTokens+' remaining this month</div>'+
+        '<div class="dts-label">Breaks</div>'+
+        '<div class="dts-sub" id="dts-sub-text">'+bypassTokens+' left this month</div>'+
       '</div>'+
       '<div class="dts-right">'+
         '<div class="dts-dots" id="dts-dots">'+tokenDotsHTML(bypassTokens,3,true)+'</div>'+
         '<div class="dts-count" id="dts-count">'+bypassTokens+'/3</div>'+
-        (locked&&bypassTokens>0&&!isBypassed()?'<button style="background:rgba(224,90,107,0.15);border:0.5px solid rgba(224,90,107,0.35);color:#e05a6b;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:6px;" onclick="openBypassModal()">Bypass</button>':'')+
+        (locked&&bypassTokens>0&&!isBypassed()?'<button style="background:rgba(207,154,72,0.18);border:1px solid rgba(207,154,72,0.4);color:#9c6f24;border-radius:9px;padding:6px 11px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;margin-left:6px;" onclick="openBypassModal()">Take a break</button>':'')+
       '</div>'+
     '</div>'+
     // Locked banner (only when active)
     (locked?
       '<div class="locked-banner">'+
         '<span style="font-size:20px;flex-shrink:0;">🔒</span>'+
-        '<div><div class="locked-banner-text">This focus is currently active</div>'+
-        '<div class="locked-banner-sub">View-only while running. Use a bypass token to pause it.</div></div>'+
+        '<div><div class="locked-banner-text">This focus is running now</div>'+
+        '<div class="locked-banner-sub">Just looking while it runs. Take a break to pause it.</div></div>'+
       '</div>':''
     );
 }
@@ -312,7 +313,7 @@ function refreshDetailTokens(){
   const s=document.getElementById('dts-sub-text');
   if(d)d.innerHTML=tokenDotsHTML(bypassTokens,3,true);
   if(c)c.textContent=bypassTokens+'/3';
-  if(s)s.textContent=bypassTokens+' remaining this month';
+  if(s)s.textContent=bypassTokens+' left this month';
 }
 
 function renderDetailContent(f,locked){
@@ -341,12 +342,12 @@ function renderDetailContent(f,locked){
   const focusAutoDomains=APPS.filter(a=>f.focusApps.has(a.id)).map(a=>a.domain);
   h+='<div class="section-label">Auto-blocked Websites</div>';
   if(focusAutoDomains.length===0){
-    h+='<div style="color:#555;font-size:13px;padding:10px 18px;font-style:italic;">Block an app above to auto-add its website.</div>';
+    h+='<div style="color:#a99d87;font-size:13px;padding:11px 20px;font-style:italic;">Block an app above to quietly add its site.</div>';
   } else {
     focusAutoDomains.forEach(domain=>{
       const app=APPS.find(a=>a.domain===domain);
       h+='<div class="web-row"><div class="web-icon">'+app.icon+'</div>'+
-          '<div class="app-info"><div class="web-url">'+domain+'</div><div class="web-domain">Auto via '+app.name+'</div></div>'+
+          '<div class="app-info"><div class="web-url">'+domain+'</div><div class="web-domain">With '+app.name+'</div></div>'+
           '<button class="toggle on locked" disabled></button></div><div class="divider"></div>';
     });
   }
@@ -360,7 +361,7 @@ function renderDetailContent(f,locked){
       '</div>';
   }
   if(f.focusSites.length===0){
-    h+='<div style="color:#555;font-size:13px;padding:10px 18px;font-style:italic;">No extra websites blocked for this focus.</div>';
+    h+='<div style="color:#a99d87;font-size:13px;padding:11px 20px;font-style:italic;">No extra websites for this focus yet.</div>';
   } else {
     f.focusSites.forEach((site,i)=>{
       h+='<div class="web-row"><div class="web-icon">🔗</div>'+
@@ -375,9 +376,9 @@ function renderDetailContent(f,locked){
   // ── Focus toggle + delete (only when not active) ──
   if(!locked){
     h+='<div class="section-label">Schedule Status</div>'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;">'+
-        '<div><div style="color:#e8e8f0;font-size:14px;font-weight:600;">Enable this Focus</div>'+
-        '<div style="color:#555;font-size:11px;margin-top:2px;">Turns blocking on/off for this schedule</div></div>'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 20px;">'+
+        '<div><div style="color:#403a31;font-size:14px;font-weight:700;">Enable this Focus</div>'+
+        '<div style="color:#a99d87;font-size:11.5px;margin-top:2px;">Turns blocking on/off for this schedule</div></div>'+
         '<button class="toggle'+(f.active?' on':'')+'" onclick="toggleFocusActive(\''+f.id+'\')"></button>'+
       '</div>';
     h+='<button class="del-focus-btn" onclick="deleteFocusFromDetail(\''+f.id+'\')">Delete This Focus</button>';
@@ -449,25 +450,25 @@ function renderFocusCards(){
       '<div class="focus-card-header">'+
         '<div class="focus-card-icon">'+f.icon+'</div>'+
         '<div style="flex:1;min-width:0;">'+
-          '<div class="focus-card-name">'+f.name+(active?' <span style="color:#e05a6b;font-size:10px;">● Active</span>':'')+'</div>'+
+          '<div class="focus-card-name">'+f.name+(active?' <span style="color:#bf6a48;font-size:10px;">● Active</span>':'')+'</div>'+
           '<div class="focus-card-time">'+fmt12(f.start)+' – '+fmt12(f.end)+' · '+dayLabel(f.days)+'</div>'+
         '</div>'+
-        '<span style="color:#333;font-size:20px;flex-shrink:0;">›</span>'+
+        '<span style="color:#bdb29b;font-size:20px;flex-shrink:0;">›</span>'+
       '</div>'+
       '<div class="focus-card-footer">'+
         '<span class="focus-card-purpose">'+f.purpose+'</span>'+
-        '<span style="color:#555;font-size:10px;flex-shrink:0;margin-left:8px;">'+appCount+' apps · '+webCount+' sites'+(active?' 🔒':'')+'</span>'+
+        '<span style="color:#a99d87;font-size:10px;flex-shrink:0;margin-left:8px;">'+appCount+' apps · '+webCount+' sites'+(active?' 🔒':'')+'</span>'+
       '</div>';
     container.appendChild(div);
   });
   renderCustomizeTokens();
 }
 
-// ─── Bypass ──────────────────────────────────────────────────────
+// ─── Breaks / bypass ─────────────────────────────────────────────
 function openBypassModal(){
   if(bypassTokens<=0||isBypassed())return;
   document.getElementById('bypass-warning-text').textContent=
-    '⚠️ '+bypassTokens+' bypass token'+(bypassTokens===1?'':'s')+' left this month. Only pauses the current focus — others stay active.';
+    'You have '+bypassTokens+' break'+(bypassTokens===1?'':'s')+' left this month. A break gently pauses just this focus — your other focuses stay on.';
   document.getElementById('modal-bypass').classList.add('show');
 }
 function activateBypass(minutes){

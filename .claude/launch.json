@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "focus-app",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "C:\\Users\\Blake Jones\\Desktop\\Claude Projects\\Focus App\\serve.ps1",
+        "-Port",
+        "8137"
+      ],
+      "port": 8137
+    }
+  ]
+}
